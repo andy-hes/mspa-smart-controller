@@ -1,6 +1,6 @@
 {
   "id": "com.mspa.httpcontroller",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "compatibility": ">=12.0.0",
   "sdk": 3,
   "platforms": [
@@ -94,7 +94,30 @@
           "template": "add_devices"
         }
       ],
-      "settings": []
+      "settings": [
+        {
+          "id": "host",
+          "type": "text",
+          "label": {
+            "en": "MSpa controller host (IP:port or DNS:port)"
+          },
+          "value": "192.168.1.50:8080",
+          "hint": {
+            "en": "Example: 192.168.1.123:8080 or mspa.local:8080"
+          }
+        },
+        {
+          "id": "token",
+          "type": "password",
+          "label": {
+            "en": "API token"
+          },
+          "value": "",
+          "hint": {
+            "en": "Must match the token configured on ESP/simulator"
+          }
+        }
+      ]
     }
   ],
   "capabilities": {
