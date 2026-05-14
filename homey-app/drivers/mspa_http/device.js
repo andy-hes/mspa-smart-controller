@@ -33,7 +33,11 @@ class MSpaDevice extends Homey.Device {
       await this.refreshStatus();
     });
 
-    await this.refreshStatus();
+    if (await this.hasHostConfigured()) {
+      await this.refreshStatus();
+    } else {
+      await this.setUnavailable('Set MSpa controller host in device settings');
+    }
     this.pollTimer = this.homey.setInterval(() => this.refreshStatus().catch((err) => this.error(err)), 10000);
   }
 
@@ -41,7 +45,11 @@ class MSpaDevice extends Homey.Device {
     if (changedKeys.includes('api_host') || changedKeys.includes('host')) {
       const host = String(newSettings.api_host || newSettings.host || '').trim();
       await this.setStoreValue('fallback_host', host);
+      this.homey.setTimeout(() => {
+        this.refreshStatus().catch(err => this.error(err));
+      }, 1000);
     }
+    return true;
   }
 
   async onDeleted() {
@@ -53,7 +61,7 @@ class MSpaDevice extends Homey.Device {
   async callApi(path, method = 'GET', body = null) {
     const hostSetting = String(this.getSetting('api_host') || this.getSetting('host') || '').trim();
     const fallbackHost = String((await this.getStoreValue('fallback_host')) || '').trim();
-    const host = hostSetting || fallbackHost;
+    const host = fallbackHost || hostSetting;
 
     if (!host) {
       throw new Error('Missing MSpa controller host in device settings');
@@ -61,6 +69,12 @@ class MSpaDevice extends Homey.Device {
 
     const normalizedHost = host.replace(/^https?:\/\//i, '');
     return this.requestJson(`http://${normalizedHost}${path}`, method, body);
+  }
+
+  async hasHostConfigured() {
+    const hostSetting = String(this.getSetting('api_host') || this.getSetting('host') || '').trim();
+    const fallbackHost = String((await this.getStoreValue('fallback_host')) || '').trim();
+    return Boolean(hostSetting || fallbackHost);
   }
 
   requestJson(url, method, body) {

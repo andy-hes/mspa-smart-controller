@@ -34,5 +34,8 @@
   },
   "0.2.1": {
     "en": "Replaces fetch with a native HTTP client and improves connection error messages."
+  },
+  "0.2.2": {
+    "en": "Improves host setting persistence and removes the old default host fallback."
   }
 }
