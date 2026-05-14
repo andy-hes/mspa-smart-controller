@@ -1,6 +1,7 @@
 'use strict';
 
 const Homey = require('homey');
+const http = require('node:http');
 
 class MSpaDevice extends Homey.Device {
   async onInit() {
@@ -59,22 +60,53 @@ class MSpaDevice extends Homey.Device {
     }
 
     const normalizedHost = host.replace(/^https?:\/\//i, '');
-    const url = `http://${normalizedHost}${path}`;
-    const headers = {};
+    return this.requestJson(`http://${normalizedHost}${path}`, method, body);
+  }
 
-    const init = { method, headers };
-    if (body != null) {
-      headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      init.body = body;
-    }
+  requestJson(url, method, body) {
+    return new Promise((resolve, reject) => {
+      const parsed = new URL(url);
+      const payload = body == null ? null : Buffer.from(body);
+      const req = http.request({
+        hostname: parsed.hostname,
+        port: parsed.port || 80,
+        path: `${parsed.pathname}${parsed.search}`,
+        method,
+        timeout: 8000,
+        headers: payload ? {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': payload.length
+        } : {}
+      }, (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', chunk => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(data));
+          } catch (err) {
+            reject(new Error(`Invalid JSON from MSpa API: ${err.message}`));
+          }
+        });
+      });
 
-    const res = await fetch(url, init);
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-    }
-
-    return res.json();
+      req.on('timeout', () => {
+        req.destroy(new Error(`Timeout connecting to ${parsed.host}`));
+      });
+      req.on('error', err => {
+        reject(new Error(`MSpa API request failed for ${parsed.host}: ${err.message}`));
+      });
+      if (payload) {
+        req.write(payload);
+      }
+      req.end();
+    });
   }
 
   async refreshStatus() {
