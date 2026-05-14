@@ -37,5 +37,8 @@
   },
   "0.2.2": {
     "en": "Improves host setting persistence and removes the old default host fallback."
+  },
+  "0.2.3": {
+    "en": "Extends the thermostat target temperature range to 15-40°C."
   }
 }
