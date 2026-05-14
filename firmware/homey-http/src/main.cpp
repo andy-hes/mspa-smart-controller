@@ -10,9 +10,6 @@
 #ifndef WIFI_PASSWORD
 #define WIFI_PASSWORD ""
 #endif
-#ifndef API_TOKEN
-#define API_TOKEN ""
-#endif
 #ifndef UART_BAUD
 #define UART_BAUD 9600
 #endif
@@ -52,16 +49,6 @@ void sendFrame(uint8_t cmd, uint8_t value) {
   uint8_t frame[4] = {START_BYTE, cmd, value, checksum(cmd, value)};
   Serial2.write(frame, 4);
   Serial.printf("TX %02X %02X %02X %02X\n", frame[0], frame[1], frame[2], frame[3]);
-}
-
-bool isAuthorized(AsyncWebServerRequest* req) {
-  if (strlen(API_TOKEN) == 0) {
-    return false;
-  }
-  if (!req->hasHeader("X-Auth-Token")) {
-    return false;
-  }
-  return req->getHeader("X-Auth-Token")->value().equals(API_TOKEN);
 }
 
 void jsonError(AsyncWebServerRequest* req, int code, const char* message) {
@@ -106,50 +93,42 @@ void handleRestore() {
 
 void setupRoutes() {
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     jsonStatus(req);
   });
 
   server.on("/api/filter/on", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     state.filter_on = true;
     jsonStatus(req);
   });
 
   server.on("/api/filter/off", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     state.filter_on = false;
     ensureSafeHeaterState();
     jsonStatus(req);
   });
 
   server.on("/api/heater/on", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     state.filter_on = true;
     state.heater_on = true;
     jsonStatus(req);
   });
 
   server.on("/api/heater/off", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     state.heater_on = false;
     jsonStatus(req);
   });
 
   server.on("/api/bubbles/on", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     state.bubbles_level = 1;
     jsonStatus(req);
   });
 
   server.on("/api/bubbles/off", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     state.bubbles_level = 0;
     jsonStatus(req);
   });
 
   server.on("/api/target-temperature", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     if (!req->hasParam("value", true)) return jsonError(req, 400, "missing value");
     int v = req->getParam("value", true)->value().toInt();
     if (v < 20 || v > 40) return jsonError(req, 400, "value out of range");
@@ -158,19 +137,16 @@ void setupRoutes() {
   });
 
   server.on("/api/restore", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     handleRestore();
     jsonStatus(req);
   });
 
   server.on("/api/auto-restore/on", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     state.auto_restore_enabled = true;
     jsonStatus(req);
   });
 
   server.on("/api/auto-restore/off", HTTP_POST, [](AsyncWebServerRequest* req) {
-    if (!isAuthorized(req)) return jsonError(req, 401, "unauthorized");
     state.auto_restore_enabled = false;
     jsonStatus(req);
   });

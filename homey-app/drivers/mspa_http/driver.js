@@ -8,8 +8,7 @@ class MSpaDriver extends Homey.Driver {
       name: 'MSpa HTTP Controller',
       data: { id: `mspa-${Date.now()}` },
       settings: {
-        host: '192.168.1.50',
-        token: ''
+        api_host: '192.168.1.50'
       }
     }];
   }

@@ -37,14 +37,9 @@ class MSpaDevice extends Homey.Device {
   }
 
   async onSettings({ newSettings, changedKeys }) {
-    // Keep a fallback copy, because some Homey clients can be inconsistent with password fields.
     if (changedKeys.includes('api_host') || changedKeys.includes('host')) {
       const host = String(newSettings.api_host || newSettings.host || '').trim();
       await this.setStoreValue('fallback_host', host);
-    }
-    if (changedKeys.includes('auth_key') || changedKeys.includes('api_token') || changedKeys.includes('token')) {
-      const token = String(newSettings.auth_key || newSettings.api_token || newSettings.token || '').trim();
-      await this.setStoreValue('fallback_token', token);
     }
   }
 
@@ -56,24 +51,16 @@ class MSpaDevice extends Homey.Device {
 
   async callApi(path, method = 'GET', body = null) {
     const hostSetting = String(this.getSetting('api_host') || this.getSetting('host') || '').trim();
-    const tokenSetting = String(this.getSetting('auth_key') || this.getSetting('api_token') || this.getSetting('token') || '').trim();
     const fallbackHost = String((await this.getStoreValue('fallback_host')) || '').trim();
-    const fallbackToken = String((await this.getStoreValue('fallback_token')) || '').trim();
+    const host = hostSetting || fallbackHost;
 
-    const hostWithOptionalToken = hostSetting || fallbackHost;
-    const parsed = this.parseHostAndToken(hostWithOptionalToken);
-    const host = parsed.host;
-    const token = tokenSetting || fallbackToken || parsed.token;
-
-    if (!host || !token) {
-      throw new Error(`Missing host/token in device settings (host:${host ? 'ok' : 'missing'}, token:${token ? 'ok' : 'missing'})`);
+    if (!host) {
+      throw new Error('Missing MSpa controller host in device settings');
     }
 
     const normalizedHost = host.replace(/^https?:\/\//i, '');
     const url = `http://${normalizedHost}${path}`;
-    const headers = {
-      'X-Auth-Token': token
-    };
+    const headers = {};
 
     const init = { method, headers };
     if (body != null) {
@@ -88,19 +75,6 @@ class MSpaDevice extends Homey.Device {
     }
 
     return res.json();
-  }
-
-  parseHostAndToken(value) {
-    const input = String(value || '').trim();
-    const separatorIndex = input.lastIndexOf('|');
-    if (separatorIndex === -1) {
-      return { host: input, token: '' };
-    }
-
-    return {
-      host: input.slice(0, separatorIndex).trim(),
-      token: input.slice(separatorIndex + 1).trim()
-    };
   }
 
   async refreshStatus() {

@@ -17,8 +17,7 @@ Første versjon av lokal Homey-app som snakker med `firmware/homey-http` via HTT
 ## Forutsetninger
 
 1. ESP-firmware fra `firmware/homey-http` kjører og er tilgjengelig på LAN.
-2. API-token er satt i ESP-firmware build (`MSPA_API_TOKEN`).
-3. Homey kan nå ESP-IP på nettverket.
+2. Homey kan nå ESP-IP på nettverket.
 
 ## Installasjon (lokalt utviklingsløp)
 
@@ -30,9 +29,8 @@ homey app run
 
 Ved pairing:
 - Sett `host` til f.eks. `192.168.1.50` (evt `192.168.1.50:80`)
-- Sett `token` til samme token som ESP bruker
 
-## Begrensninger i v0.1.0
+## Begrensninger
 
 - Ingen MQTT i appen ennå
 - Ingen avansert feilkode-dekoding utover `bath_status`

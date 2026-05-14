@@ -1,6 +1,6 @@
 {
   "id": "com.mspa.httpcontroller",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "compatibility": ">=12.0.0",
   "sdk": 3,
   "platforms": [
@@ -103,18 +103,7 @@
           },
           "value": "192.168.1.50:8080",
           "hint": {
-            "en": "Example: 192.168.1.123:8080. If auth field fails, use 192.168.1.123:8080|your-auth-key"
-          }
-        },
-        {
-          "id": "auth_key",
-          "type": "text",
-          "label": {
-            "en": "API auth key"
-          },
-          "value": "",
-          "hint": {
-            "en": "Must match the token configured on ESP/simulator (stored locally on Homey)"
+            "en": "Example: 192.168.1.123:8080 or mspa.local:8080"
           }
         }
       ]

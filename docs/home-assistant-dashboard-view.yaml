@@ -130,4 +130,4 @@ sections:
             Spa appears offline. Check:
             1. ESP power and Wi-Fi
             2. UART wiring and level shifting
-            3. token/API connectivity if using bridge components
+                3. local API connectivity if using bridge components
