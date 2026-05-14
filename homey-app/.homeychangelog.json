@@ -1,0 +1,11 @@
+{
+  "0.1.0": {
+    "en": "Initial Release"
+  },
+  "0.1.1": {
+    "en": "Initial release of MSpa Smart Restore for Homey Pro."
+  },
+  "0.1.2": {
+    "en": "Fixes device pairing flow so adding the MSpa controller can continue from the “devices found” step. Improves app assets and readme for App Store compliance."
+  }
+}

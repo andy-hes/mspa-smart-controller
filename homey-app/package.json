@@ -1,0 +1,9 @@
+{
+  "name": "com.mspa.httpcontroller",
+  "version": "0.1.0",
+  "description": "MSpa local HTTP controller for Homey Pro",
+  "main": "app.js",
+  "engines": {
+    "node": ">=18"
+  }
+}

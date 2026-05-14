@@ -1,0 +1,133 @@
+title: MSpa
+path: mspa
+icon: mdi:hot-tub
+type: sections
+max_columns: 4
+sections:
+  - type: grid
+    cards:
+      - type: heading
+        heading: MSpa Smart Restore
+        icon: mdi:hot-tub
+      - type: tile
+        entity: binary_sensor.mspa_online
+        name: Spa Online
+        state_content:
+          - state
+        color: teal
+      - type: tile
+        entity: switch.mspa_auto_restore_enabled
+        name: Auto Restore
+        features_position: inline
+        vertical: false
+        tap_action:
+          action: toggle
+      - type: tile
+        entity: button.mspa_restore_desired_mode
+        name: Safe Restore Now
+        color: amber
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.mspa_restore_desired_mode
+
+  - type: grid
+    cards:
+      - type: gauge
+        entity: sensor.mspa_current_temperature
+        name: Water Temperature
+        min: 15
+        max: 45
+        severity:
+          green: 25
+          yellow: 35
+          red: 40
+        needle: true
+      - type: tile
+        entity: number.mspa_target_temperature
+        name: Target Temperature
+        features_position: bottom
+        vertical: true
+      - type: tile
+        entity: text_sensor.mspa_raw_status
+        name: Raw Status
+        color: indigo
+
+  - type: grid
+    cards:
+      - type: heading
+        heading: Main Controls
+        icon: mdi:tune-variant
+      - type: tile
+        entity: switch.mspa_filter
+        name: Filter
+        color: blue
+        tap_action:
+          action: toggle
+      - type: tile
+        entity: switch.mspa_heater
+        name: Heater
+        color: red
+        tap_action:
+          action: toggle
+      - type: tile
+        entity: switch.mspa_bubbles
+        name: Bubbles
+        color: cyan
+        tap_action:
+          action: toggle
+
+  - type: grid
+    cards:
+      - type: history-graph
+        title: Temperature Trend
+        hours_to_show: 24
+        refresh_interval: 30
+        entities:
+          - entity: sensor.mspa_current_temperature
+            name: Water Temp
+      - type: entities
+        title: Safety & Status
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.mspa_online
+            name: Online
+          - entity: switch.mspa_auto_restore_enabled
+            name: Auto Restore Enabled
+          - entity: switch.mspa_filter
+            name: Filter
+          - entity: switch.mspa_heater
+            name: Heater
+          - entity: switch.mspa_bubbles
+            name: Bubbles
+          - entity: number.mspa_target_temperature
+            name: Target Temp
+          - entity: sensor.mspa_current_temperature
+            name: Current Temp
+          - entity: text_sensor.mspa_raw_status
+            name: Raw Status Frame
+
+  - type: grid
+    cards:
+      - type: markdown
+        title: Power-loss Recovery Logic
+        content: |
+          **This controller restores safely after reboot:**
+          - waits configured delay
+          - requires spa online state
+          - restores filter -> target temp -> heater
+          - does not auto-enable bubbles
+          - heater is blocked when filter is off
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.mspa_online
+            state_not: "on"
+        card:
+          type: markdown
+          title: Attention
+          content: |
+            Spa appears offline. Check:
+            1. ESP power and Wi-Fi
+            2. UART wiring and level shifting
+            3. token/API connectivity if using bridge components

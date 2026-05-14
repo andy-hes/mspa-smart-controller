@@ -1,0 +1,21 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Homey build artifacts
+homey-app/.homeybuild/
+
+# Local env/secrets
+.env
+.env.*
+secrets.yaml
+
+# Optional local exports
+*.zip

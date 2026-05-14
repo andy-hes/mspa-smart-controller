@@ -1,0 +1,32 @@
+# Homey App Image Prompts (MSpa Smart Restore)
+
+Use these prompts in GPT-5.5 image generation. Keep output clean, modern, and product-like.
+Do not use Homey logo, Homey text, or Athom branding.
+
+## 1) App images (store hero)
+Create 3 PNG files from the same visual concept:
+- small: 250x175
+- large: 500x350
+- xlarge: 1000x700
+
+Prompt:
+"Create a polished smart-home app store hero image for an MSpa hot tub automation app. Show a modern inflatable hot tub scene with warm water tones, subtle steam, and a small visual hint of automation/recovery (for example a circular restore arrow integrated naturally into the scene). Style: clean premium product visual, realistic-illustrative hybrid, high contrast, soft lighting, no text, no logos, no UI screenshots, no clipart look. Composition must remain clear when downscaled. Use a calm blue + aqua palette with a warm accent."
+
+## 2) Driver images (device card)
+Create 3 PNG files from the same device-centric concept with white background:
+- small: 75x75
+- large: 500x500
+- xlarge: 1000x1000
+
+Prompt:
+"Create a clean device image for a smart hot tub controller. White background, centered subject, recognizable MSpa-like inflatable tub with a subtle embedded controller cue (small wireless/automation symbol style without logos). Keep edges crisp and shape readable at tiny sizes. Style: minimal product render, not cartoonish, no text, no logos, no phone screenshots."
+
+## 3) Optional app icon refinement (SVG reference concept)
+Prompt:
+"Design a simple monochrome app icon concept for a smart hot tub restore app: rounded tub shape, water wave, and a small restore arrow motif. Minimal geometric style, strong silhouette, readable at small size."
+
+## Quality checks before use
+- App images must look good at 250x175 and still be recognizable.
+- Driver images must be white background and device-focused.
+- Avoid flat single-color blocks and avoid generic clipart.
+- No trademarked Homey/Athom visual elements.

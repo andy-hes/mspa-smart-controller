@@ -1,0 +1,142 @@
+{
+  "id": "com.mspa.httpcontroller",
+  "version": "0.1.2",
+  "compatibility": ">=12.0.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "brandColor": "#2E6F95",
+  "name": {
+    "en": "MSpa Smart Restore"
+  },
+  "author": {
+    "name": "MSpa Community",
+    "email": "maintainer@example.com"
+  },
+  "description": {
+    "en": "Keep your MSpa warm and ready after power loss."
+  },
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "category": [
+    "climate"
+  ],
+  "permissions": [],
+  "flow": {
+    "actions": [
+      {
+        "id": "mspa_restore",
+        "title": {
+          "en": "Restore MSpa desired mode"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=mspa_http"
+          }
+        ]
+      }
+    ]
+  },
+  "drivers": [
+    {
+      "id": "mspa_http",
+      "name": {
+        "en": "MSpa Spa Controller"
+      },
+      "class": "heater",
+      "images": {
+        "small": "/drivers/mspa_http/assets/images/small.png",
+        "large": "/drivers/mspa_http/assets/images/large.png",
+        "xlarge": "/drivers/mspa_http/assets/images/xlarge.png"
+      },
+      "capabilities": [
+        "onoff",
+        "measure_temperature",
+        "target_temperature",
+        "alarm_generic",
+        "mspa_filter",
+        "mspa_bubbles",
+        "mspa_auto_restore",
+        "mspa_bath_status"
+      ],
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          },
+          "options": {
+            "singular": true
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "settings": [
+        {
+          "id": "host",
+          "type": "text",
+          "label": {
+            "en": "MSpa controller host (IP:port)"
+          },
+          "value": "192.168.1.50"
+        },
+        {
+          "id": "token",
+          "type": "password",
+          "label": {
+            "en": "API token"
+          },
+          "value": ""
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "mspa_filter": {
+      "type": "boolean",
+      "title": {
+        "en": "Filter"
+      },
+      "uiComponent": "toggle",
+      "getable": true,
+      "setable": true
+    },
+    "mspa_bubbles": {
+      "type": "boolean",
+      "title": {
+        "en": "Bubbles"
+      },
+      "uiComponent": "toggle",
+      "getable": true,
+      "setable": true
+    },
+    "mspa_auto_restore": {
+      "type": "boolean",
+      "title": {
+        "en": "Auto Restore"
+      },
+      "uiComponent": "toggle",
+      "getable": true,
+      "setable": true
+    },
+    "mspa_bath_status": {
+      "type": "string",
+      "title": {
+        "en": "Bath Status"
+      },
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false
+    }
+  }
+}

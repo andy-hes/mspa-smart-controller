@@ -1,0 +1,157 @@
+title: MSpa Visual
+path: mspa-visual
+icon: mdi:image-filter-hdr
+type: panel
+cards:
+  - type: vertical-stack
+    cards:
+      - type: picture-elements
+        image: /local/mspa/hero.png
+        elements:
+          - type: icon
+            icon: mdi:hot-tub
+            style:
+              top: 8%
+              left: 6%
+              color: white
+              --mdc-icon-size: 34px
+
+          - type: conditional
+            conditions:
+              - entity: sensor.mspa_current_temperature
+                state_not: unavailable
+              - entity: sensor.mspa_current_temperature
+                state_not: unknown
+            elements:
+              - type: state-label
+                entity: sensor.mspa_current_temperature
+                style:
+                  top: 10%
+                  left: 14%
+                  color: white
+                  font-size: 34px
+                  font-weight: 700
+                  text-shadow: 0 2px 8px rgba(0,0,0,0.75)
+
+          - type: conditional
+            conditions:
+              - entity: number.mspa_target_temperature
+                state_not: unavailable
+              - entity: number.mspa_target_temperature
+                state_not: unknown
+            elements:
+              - type: state-label
+                entity: number.mspa_target_temperature
+                prefix: "Target "
+                suffix: "°C"
+                style:
+                  top: 17%
+                  left: 15%
+                  color: white
+                  font-size: 17px
+                  text-shadow: 0 2px 8px rgba(0,0,0,0.75)
+
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.mspa_online
+                state: "on"
+            elements:
+              - type: icon
+                icon: mdi:wifi-check
+                style:
+                  top: 8%
+                  right: 8%
+                  color: #2dd4bf
+                  --mdc-icon-size: 34px
+
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.mspa_online
+                state: "off"
+            elements:
+              - type: icon
+                icon: mdi:wifi-alert
+                style:
+                  top: 8%
+                  right: 8%
+                  color: #ef4444
+                  --mdc-icon-size: 34px
+
+          - type: state-icon
+            entity: switch.mspa_filter
+            style:
+              top: 78%
+              left: 22%
+              --mdc-icon-size: 44px
+            tap_action:
+              action: toggle
+            state_color: true
+
+          - type: state-icon
+            entity: switch.mspa_heater
+            style:
+              top: 78%
+              left: 40%
+              --mdc-icon-size: 44px
+            tap_action:
+              action: toggle
+            state_color: true
+
+          - type: state-icon
+            entity: switch.mspa_bubbles
+            style:
+              top: 78%
+              left: 58%
+              --mdc-icon-size: 44px
+            tap_action:
+              action: toggle
+            state_color: true
+
+          - type: state-icon
+            entity: switch.mspa_auto_restore_enabled
+            style:
+              top: 78%
+              left: 76%
+              --mdc-icon-size: 44px
+            tap_action:
+              action: toggle
+            state_color: true
+
+          - type: icon
+            icon: mdi:shield-refresh
+            style:
+              top: 91%
+              left: 50%
+              color: white
+              --mdc-icon-size: 34px
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.mspa_restore_desired_mode
+
+      - type: conditional
+        conditions:
+          - entity: sensor.mspa_current_temperature
+            state_not: unavailable
+          - entity: sensor.mspa_current_temperature
+            state_not: unknown
+        card:
+          type: history-graph
+          title: Water Temperature (24h)
+          hours_to_show: 24
+          refresh_interval: 30
+          entities:
+            - entity: sensor.mspa_current_temperature
+              name: Water Temp
+
+      - type: conditional
+        conditions:
+          - entity: sensor.mspa_current_temperature
+            state: unavailable
+        card:
+          type: markdown
+          title: ESP not connected yet
+          content: |
+            This visual dashboard is ready.
+            When your ESP entities appear, controls and graphs will activate automatically.
