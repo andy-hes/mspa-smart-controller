@@ -1,0 +1,135 @@
+input_boolean:
+  mspa_should_run:
+    name: MSpa skal være i drift
+    icon: mdi:hot-tub
+  mspa_blocked_by_power:
+    name: MSpa blokkert av effektbegrensning
+    icon: mdi:flash-alert
+
+timer:
+  mspa_restore_guard:
+    name: MSpa restore guard
+    duration: "00:03:00"
+
+automation:
+  - id: mspa_intent_on_when_started
+    alias: "MSpa: Sett driftsintensjon ON når anlegget startes"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: switch.mspa_filter
+        to: "on"
+      - platform: state
+        entity_id: switch.mspa_heater
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: input_boolean.mspa_blocked_by_power
+        state: "off"
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.mspa_should_run
+
+  - id: mspa_intent_off_when_stopped_manually
+    alias: "MSpa: Sett driftsintensjon OFF når spa stoppes manuelt"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: switch.mspa_filter
+        to: "off"
+      - platform: state
+        entity_id: switch.mspa_heater
+        to: "off"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.mspa_online
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.mspa_blocked_by_power
+        state: "off"
+      - condition: state
+        entity_id: timer.mspa_restore_guard
+        state: "idle"
+    action:
+      - delay: "00:00:05"
+      - condition: state
+        entity_id: switch.mspa_filter
+        state: "off"
+      - condition: state
+        entity_id: switch.mspa_heater
+        state: "off"
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.mspa_should_run
+
+  - id: mspa_restore_after_power_return
+    alias: "MSpa: Auto-restore etter strømbrudd/offline"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.mspa_online
+        from: "off"
+        to: "on"
+      - platform: homeassistant
+        event: start
+    condition:
+      - condition: state
+        entity_id: switch.mspa_auto_restore_enabled
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.mspa_should_run
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.mspa_blocked_by_power
+        state: "off"
+      - condition: state
+        entity_id: binary_sensor.mspa_online
+        state: "on"
+    action:
+      - delay: "00:00:20"
+      - service: timer.start
+        target:
+          entity_id: timer.mspa_restore_guard
+      - service: button.press
+        target:
+          entity_id: button.mspa_restore_desired_mode
+
+  - id: mspa_stop_when_power_blocked
+    alias: "MSpa: Stopp oppvarming ved effektbegrensning"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: input_boolean.mspa_blocked_by_power
+        to: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.mspa_heater
+            - switch.mspa_filter
+
+  - id: mspa_resume_when_power_block_cleared
+    alias: "MSpa: Gjenoppta når effektbegrensning oppheves"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: input_boolean.mspa_blocked_by_power
+        to: "off"
+    condition:
+      - condition: state
+        entity_id: input_boolean.mspa_should_run
+        state: "on"
+      - condition: state
+        entity_id: switch.mspa_auto_restore_enabled
+        state: "on"
+      - condition: state
+        entity_id: binary_sensor.mspa_online
+        state: "on"
+    action:
+      - service: timer.start
+        target:
+          entity_id: timer.mspa_restore_guard
+      - service: button.press
+        target:
+          entity_id: button.mspa_restore_desired_mode

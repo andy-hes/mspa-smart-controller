@@ -46,3 +46,54 @@ Merk:
   - `switch.mspa_auto_restore_enabled`
   - `button.mspa_restore_desired_mode`
   - `text_sensor.mspa_raw_status`
+
+## Automasjon for drift og strømbrudd
+
+Eksempelfil:
+- `home-assistant/packages/mspa_restore.yaml`
+
+Denne automasjonen:
+- gjenstarter spa etter strømbrudd/offline når spaet **skal** være i drift
+- respekterer manuell avskrudd tilstand (HA eller fjernkontroll)
+- respekterer effektbegrensning fra energilogikk (Node-RED)
+
+### Prinsipp
+
+- `input_boolean.mspa_should_run`:
+  - lagrer brukerens driftsintensjon (spa skal være i gang)
+- `input_boolean.mspa_blocked_by_power`:
+  - settes av Node-RED når stor last må kuttes
+- `timer.mspa_restore_guard`:
+  - hindrer at manuell avstenging mistolkes som feiltilstand rett etter restore
+
+### Legg inn i Home Assistant
+
+1. Opprett mappe `packages` hvis den ikke finnes:
+   - `/config/packages/`
+2. Kopier filen:
+   - fra repo: `home-assistant/packages/mspa_restore.yaml`
+   - til HA: `/config/packages/mspa_restore.yaml`
+3. Aktiver packages i `configuration.yaml` (hvis ikke allerede aktivert):
+
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+
+4. Restart Home Assistant.
+5. Verifiser at disse helperne finnes:
+   - `input_boolean.mspa_should_run`
+   - `input_boolean.mspa_blocked_by_power`
+   - `timer.mspa_restore_guard`
+
+### Node-RED kobling (effektbegrensning)
+
+Når Node-RED kutter store laster:
+- sett `input_boolean.mspa_blocked_by_power` til `on`
+
+Når effektbegrensning oppheves:
+- sett `input_boolean.mspa_blocked_by_power` til `off`
+
+Anbefalt service-kall i Node-RED:
+- `input_boolean.turn_on` / `input_boolean.turn_off`
+- target: `input_boolean.mspa_blocked_by_power`
