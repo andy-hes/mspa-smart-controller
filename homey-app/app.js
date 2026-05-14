@@ -12,6 +12,16 @@ class MSpaHomeyApp extends Homey.App {
       await args.device.refreshStatus();
       return true;
     });
+
+    const testCard = this.homey.flow.getActionCard('mspa_test_connection');
+    testCard.registerRunListener(async (args) => {
+      const status = await args.device.callApi('/api/status', 'GET');
+      if (!status || status.ok !== true) {
+        throw new Error('MSpa API did not return a valid status payload');
+      }
+      await args.device.refreshStatus();
+      return true;
+    });
   }
 }
 
