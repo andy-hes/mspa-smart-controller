@@ -97,7 +97,6 @@ binary_sensor:
     id: online_status
     lambda: |-
       return id(spa_online);
-    update_interval: 1s
 
 text_sensor:
   - platform: template
