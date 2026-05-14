@@ -140,7 +140,8 @@ void jsonError(AsyncWebServerRequest* req, int code, const char* message) {
   doc["ok"] = false;
   doc["error"] = message;
   serializeJson(doc, *response);
-  req->send(response, code);
+  response->setCode(code);
+  req->send(response);
 }
 
 void writeStatus(JsonDocument& doc) {

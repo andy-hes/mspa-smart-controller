@@ -3,6 +3,7 @@
 Ferdig første versjon:
 - `firmware/homey-http/platformio.ini`
 - `firmware/homey-http/src/main.cpp`
+- `firmware/homey-http/flash.ps1`
 
 HTTP-endepunkt (lokalt LAN):
 - GET `/api/status`
@@ -17,16 +18,45 @@ HTTP-endepunkt (lokalt LAN):
 - POST `/api/auto-restore/on`
 - POST `/api/auto-restore/off`
 
-Konfigurasjon uten hardkodede secrets:
-- `MSPA_WIFI_SSID`
-- `MSPA_WIFI_PASSWORD`
+## Bygg og flashing til ESP32
 
-Eksempel (PowerShell før build):
+PlatformIO er brukt for denne firmwaren. På denne maskinen kan kommandoene kjøres via Python-modulen:
+
 ```powershell
-$env:MSPA_WIFI_SSID="ditt-ssid"
-$env:MSPA_WIFI_PASSWORD="ditt-passord"
-pio run -d firmware/homey-http
+python -m platformio run -d firmware/homey-http
 ```
+
+Finn USB/COM-port:
+
+```powershell
+python -m platformio device list
+```
+
+Flash til ESP32, eksempel med `COM3`:
+
+```powershell
+python -m platformio run -d firmware/homey-http -t upload --upload-port COM3
+```
+
+Alternativt kan den ferdige flashfilen brukes:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File firmware/homey-http/flash.ps1 -Port COM3
+```
+
+Flash og åpne seriell monitor etterpå:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File firmware/homey-http/flash.ps1 -Port COM3 -Monitor
+```
+
+Seriell monitor uten flashing:
+
+```powershell
+python -m platformio device monitor -d firmware/homey-http --port COM3
+```
+
+Wi-Fi trenger ikke hardkodes. Første oppsett kan gjøres via fallback hotspot hvis ESP32 ikke finner lagret nettverk.
 
 Sikkerhetslogikk:
 - auto-restore etter boot (60 sek default)

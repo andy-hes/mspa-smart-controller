@@ -12,6 +12,10 @@ __pycache__/
 # Homey build artifacts
 homey-app/.homeybuild/
 
+# PlatformIO build artifacts
+.pio/
+firmware/**/.pio/
+
 # Local env/secrets
 .env
 .env.*
