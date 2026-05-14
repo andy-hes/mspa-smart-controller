@@ -86,6 +86,9 @@ class Simulator:
 class Handler(BaseHTTPRequestHandler):
     simulator: Simulator
 
+    def _log_request(self) -> None:
+        print(f"{time.strftime('%H:%M:%S')} {self.command} {self.path} from {self.client_address[0]}")
+
     def _json(self, code: int, payload: dict) -> None:
         data = json.dumps(payload).encode("utf-8")
         self.send_response(code)
@@ -95,6 +98,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self) -> None:  # noqa: N802
+        self._log_request()
         parsed = urlparse(self.path)
         if parsed.path == "/api/status":
             self._json(HTTPStatus.OK, self.simulator.to_status())
@@ -103,6 +107,7 @@ class Handler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802
+        self._log_request()
         parsed = urlparse(self.path)
         path = parsed.path
 
