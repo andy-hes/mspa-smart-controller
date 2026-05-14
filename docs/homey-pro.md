@@ -34,6 +34,57 @@ Sikkerhetslogikk:
 - status/temperature leses fra UART (`0x08`, `0x06`)
 - UVC/Ozone ikke aktivert i denne Mist-fokuserte varianten
 
+## ESP32 lokal webside og lagrede innstillinger
+
+Homey-firmwaren har nå lokal webside på ESP32:
+- `http://<esp-ip>/`
+
+Websiden viser:
+- online/status
+- aktuell temperatur
+- setpunkt
+- filter/heater/bubbles
+- auto-restore
+- Wi-Fi status/IP
+
+Websiden lar deg:
+- styre filter/heater/bubbles
+- sette temperatur
+- lagre Wi-Fi SSID/passord
+
+ESP32 bruker NVS/Preferences til å lagre:
+- Wi-Fi SSID/passord
+- filter/heater ønsket tilstand
+- ønsket temperatur
+- auto-restore aktivert/deaktivert
+- om spaet skal være i drift (`desired_run`)
+
+## Fallback hotspot
+
+Hvis ESP32 ikke får koblet til Wi-Fi innen 2 minutter:
+- den starter fallback hotspot `MSpa-Setup`
+- passord: `mspasetup`
+- webside: `http://192.168.4.1/`
+
+Bruk denne siden til å legge inn riktig Wi-Fi.
+
+## Fjernkontroll og auto-restore
+
+Firmware leser statusrammer fra spaet (`0x08`):
+- status `0x03` tolkes som at spaet går
+- status `0x00` tolkes som av/idle
+
+Hvis spaet går og senere blir slått av via original fjernkontroll:
+- ESP32 lagrer `desired_run = false`
+- `auto_restore_enabled` blir automatisk slått av
+- spaet blir ikke startet igjen etter strømbrudd
+
+Hvis spaet blir slått på igjen via original fjernkontroll:
+- ESP32 lagrer `desired_run = true`
+- `auto_restore_enabled` blir automatisk aktivert igjen
+
+Det er lagt inn oppstart/restore guard-tid for å unngå at ESP32 mistolker normal reboot/restore som manuell avstenging.
+
 ## Lokal simulering uten ESP32
 
 For å teste Homey-appen før maskinvaren er klar, bruk:
