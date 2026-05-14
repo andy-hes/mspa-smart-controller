@@ -1,6 +1,6 @@
 {
   "id": "com.mspa.httpcontroller",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "compatibility": ">=12.0.0",
   "sdk": 3,
   "platforms": [
@@ -108,13 +108,13 @@
         },
         {
           "id": "token",
-          "type": "password",
+          "type": "text",
           "label": {
             "en": "API token"
           },
           "value": "",
           "hint": {
-            "en": "Must match the token configured on ESP/simulator"
+            "en": "Must match the token configured on ESP/simulator (stored locally on Homey)"
           }
         }
       ]
