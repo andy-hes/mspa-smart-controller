@@ -36,6 +36,18 @@ class MSpaDevice extends Homey.Device {
     this.pollTimer = this.homey.setInterval(() => this.refreshStatus().catch((err) => this.error(err)), 10000);
   }
 
+  async onSettings({ newSettings, changedKeys }) {
+    // Keep a fallback copy, because some Homey clients can be inconsistent with password fields.
+    if (changedKeys.includes('host')) {
+      const host = String(newSettings.host || '').trim();
+      await this.setStoreValue('fallback_host', host);
+    }
+    if (changedKeys.includes('token')) {
+      const token = String(newSettings.token || '').trim();
+      await this.setStoreValue('fallback_token', token);
+    }
+  }
+
   async onDeleted() {
     if (this.pollTimer) {
       this.homey.clearInterval(this.pollTimer);
@@ -43,12 +55,16 @@ class MSpaDevice extends Homey.Device {
   }
 
   async callApi(path, method = 'GET', body = null) {
-    const settings = this.getSettings();
-    const host = String(settings.host || '').trim();
-    const token = String(settings.token || '').trim();
+    const hostSetting = String(this.getSetting('host') || '').trim();
+    const tokenSetting = String(this.getSetting('token') || '').trim();
+    const fallbackHost = String((await this.getStoreValue('fallback_host')) || '').trim();
+    const fallbackToken = String((await this.getStoreValue('fallback_token')) || '').trim();
+
+    const host = hostSetting || fallbackHost;
+    const token = tokenSetting || fallbackToken;
 
     if (!host || !token) {
-      throw new Error('Missing host/token in device settings');
+      throw new Error(`Missing host/token in device settings (host:${host ? 'ok' : 'missing'}, token:${token ? 'ok' : 'missing'})`);
     }
 
     const normalizedHost = host.replace(/^https?:\/\//i, '');
