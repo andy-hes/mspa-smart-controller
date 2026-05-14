@@ -41,6 +41,14 @@ class Simulator:
         if not self.state.filter_on:
             self.state.heater_on = False
 
+    def state_line(self) -> str:
+        st = self.state
+        return (
+            f"online={st.online} filter={st.filter_on} heater={st.heater_on} "
+            f"bubbles={st.bubbles_level} target={st.target_temp}C "
+            f"current={st.current_temp_c:.1f}C auto_restore={st.auto_restore_enabled}"
+        )
+
     def handle_restore(self) -> None:
         if not self.state.auto_restore_enabled:
             return
@@ -89,6 +97,10 @@ class Handler(BaseHTTPRequestHandler):
     def _log_request(self) -> None:
         print(f"{time.strftime('%H:%M:%S')} {self.command} {self.path} from {self.client_address[0]}")
 
+    def _log_action(self, action: str) -> None:
+        print(f"  -> {action}")
+        print(f"     {self.simulator.state_line()}")
+
     def _json(self, code: int, payload: dict) -> None:
         data = json.dumps(payload).encode("utf-8")
         self.send_response(code)
@@ -116,27 +128,37 @@ class Handler(BaseHTTPRequestHandler):
 
             if path == "/api/filter/on":
                 st.filter_on = True
+                action = "filter on"
             elif path == "/api/filter/off":
                 st.filter_on = False
                 self.simulator.ensure_safe_heater_state()
+                action = "filter off (heater forced off)"
             elif path == "/api/heater/on":
                 st.filter_on = True
                 st.heater_on = True
+                action = "heater on (filter forced on)"
             elif path == "/api/heater/off":
                 st.heater_on = False
+                action = "heater off"
             elif path == "/api/bubbles/on":
                 st.bubbles_level = 1
+                action = "bubbles on"
             elif path == "/api/bubbles/off":
                 st.bubbles_level = 0
+                action = "bubbles off"
             elif path == "/api/auto-restore/on":
                 st.auto_restore_enabled = True
+                action = "auto-restore on"
             elif path == "/api/auto-restore/off":
                 st.auto_restore_enabled = False
+                action = "auto-restore off"
             elif path == "/api/restore":
                 self.simulator.handle_restore()
+                action = "restore requested"
             elif path == "/api/target-temperature":
                 length = int(self.headers.get("Content-Length", "0"))
                 body = self.rfile.read(length).decode("utf-8") if length > 0 else ""
+                print(f"  body: {body}")
                 params = parse_qs(body)
                 if "value" not in params:
                     self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "missing value"})
@@ -150,14 +172,17 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "value out of range"})
                     return
                 st.target_temp = v
+                action = f"target temperature set to {v}C"
 
             # Simulation helper endpoints.
             elif path == "/api/sim/offline":
                 st.online = False
                 st.bath_status = 0
+                action = "simulation: offline"
             elif path == "/api/sim/online":
                 st.online = True
                 st.bath_status = 3
+                action = "simulation: online"
             elif path == "/api/sim/temp":
                 q = parse_qs(parsed.query)
                 if "value" not in q:
@@ -169,9 +194,12 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "invalid value query"})
                     return
                 st.current_temp_c = max(10.0, min(45.0, t))
+                action = f"simulation: current temperature set to {st.current_temp_c:.1f}C"
             else:
                 self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
                 return
+
+            self._log_action(action)
 
         self._json(HTTPStatus.OK, self.simulator.to_status())
 
