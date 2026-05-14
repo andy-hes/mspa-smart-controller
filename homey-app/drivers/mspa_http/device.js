@@ -44,14 +44,15 @@ class MSpaDevice extends Homey.Device {
 
   async callApi(path, method = 'GET', body = null) {
     const settings = this.getSettings();
-    const host = settings.host;
-    const token = settings.token;
+    const host = String(settings.host || '').trim();
+    const token = String(settings.token || '').trim();
 
     if (!host || !token) {
       throw new Error('Missing host/token in device settings');
     }
 
-    const url = `http://${host}${path}`;
+    const normalizedHost = host.replace(/^https?:\/\//i, '');
+    const url = `http://${normalizedHost}${path}`;
     const headers = {
       'X-Auth-Token': token
     };

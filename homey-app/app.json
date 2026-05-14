@@ -81,24 +81,7 @@
           "template": "add_devices"
         }
       ],
-      "settings": [
-        {
-          "id": "host",
-          "type": "text",
-          "label": {
-            "en": "MSpa controller host (IP:port)"
-          },
-          "value": "192.168.1.50"
-        },
-        {
-          "id": "token",
-          "type": "password",
-          "label": {
-            "en": "API token"
-          },
-          "value": ""
-        }
-      ]
+      "settings": []
     }
   ],
   "capabilities": {
