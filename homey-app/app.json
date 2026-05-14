@@ -1,6 +1,6 @@
 {
   "id": "com.mspa.httpcontroller",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "compatibility": ">=12.0.0",
   "sdk": 3,
   "platforms": [
@@ -96,7 +96,7 @@
       ],
       "settings": [
         {
-          "id": "host",
+          "id": "api_host",
           "type": "text",
           "label": {
             "en": "MSpa controller host (IP:port or DNS:port)"
@@ -107,7 +107,7 @@
           }
         },
         {
-          "id": "token",
+          "id": "api_token",
           "type": "text",
           "label": {
             "en": "API token"

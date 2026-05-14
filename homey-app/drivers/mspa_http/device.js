@@ -38,12 +38,12 @@ class MSpaDevice extends Homey.Device {
 
   async onSettings({ newSettings, changedKeys }) {
     // Keep a fallback copy, because some Homey clients can be inconsistent with password fields.
-    if (changedKeys.includes('host')) {
-      const host = String(newSettings.host || '').trim();
+    if (changedKeys.includes('api_host') || changedKeys.includes('host')) {
+      const host = String(newSettings.api_host || newSettings.host || '').trim();
       await this.setStoreValue('fallback_host', host);
     }
-    if (changedKeys.includes('token')) {
-      const token = String(newSettings.token || '').trim();
+    if (changedKeys.includes('api_token') || changedKeys.includes('token')) {
+      const token = String(newSettings.api_token || newSettings.token || '').trim();
       await this.setStoreValue('fallback_token', token);
     }
   }
@@ -55,8 +55,8 @@ class MSpaDevice extends Homey.Device {
   }
 
   async callApi(path, method = 'GET', body = null) {
-    const hostSetting = String(this.getSetting('host') || '').trim();
-    const tokenSetting = String(this.getSetting('token') || '').trim();
+    const hostSetting = String(this.getSetting('api_host') || this.getSetting('host') || '').trim();
+    const tokenSetting = String(this.getSetting('api_token') || this.getSetting('token') || '').trim();
     const fallbackHost = String((await this.getStoreValue('fallback_host')) || '').trim();
     const fallbackToken = String((await this.getStoreValue('fallback_token')) || '').trim();
 
