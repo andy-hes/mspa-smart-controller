@@ -60,8 +60,10 @@ class MSpaDevice extends Homey.Device {
     const fallbackHost = String((await this.getStoreValue('fallback_host')) || '').trim();
     const fallbackToken = String((await this.getStoreValue('fallback_token')) || '').trim();
 
-    const host = hostSetting || fallbackHost;
-    const token = tokenSetting || fallbackToken;
+    const hostWithOptionalToken = hostSetting || fallbackHost;
+    const parsed = this.parseHostAndToken(hostWithOptionalToken);
+    const host = parsed.host;
+    const token = tokenSetting || fallbackToken || parsed.token;
 
     if (!host || !token) {
       throw new Error(`Missing host/token in device settings (host:${host ? 'ok' : 'missing'}, token:${token ? 'ok' : 'missing'})`);
@@ -86,6 +88,19 @@ class MSpaDevice extends Homey.Device {
     }
 
     return res.json();
+  }
+
+  parseHostAndToken(value) {
+    const input = String(value || '').trim();
+    const separatorIndex = input.lastIndexOf('|');
+    if (separatorIndex === -1) {
+      return { host: input, token: '' };
+    }
+
+    return {
+      host: input.slice(0, separatorIndex).trim(),
+      token: input.slice(separatorIndex + 1).trim()
+    };
   }
 
   async refreshStatus() {
