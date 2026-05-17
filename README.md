@@ -19,6 +19,7 @@ Se:
 - [docs/safety.md](docs/safety.md)
 - [docs/hardware.md](docs/hardware.md)
 - [docs/protocol.md](docs/protocol.md)
+- [docs/uvc-ozone.md](docs/uvc-ozone.md)
 
 ## Prosjektstruktur
 
@@ -60,6 +61,7 @@ Detaljer: se [docs/protocol.md](docs/protocol.md).
 2. Bruk protokollkartet i `docs/protocol.md` (basert på referanseprosjekter).
 3. Verifiser mot din spa-modell og hold UVC/ozone deaktivert som standard.
 4. Start med `firmware/mspa-lab-sniffer` hvis du vil gjenta/utvide protokolltestene.
+5. For modeller med UVC/Ozone, se testoppsett i `docs/uvc-ozone.md`.
 
 ## Implementering
 
@@ -69,8 +71,13 @@ Detaljer: se [docs/protocol.md](docs/protocol.md).
   - `firmware/mspa-lab-sniffer/platformio.ini`
   - `firmware/mspa-lab-sniffer/src/main.cpp`
   - `docs/mspa-lab-sniffer.md`
+- MSpa lab sniffer for UVC/Ozone-validering:
+  - `firmware/mspa-lab-sniffer-uvc-ozone/platformio.ini`
+  - `firmware/mspa-lab-sniffer-uvc-ozone/src/main.cpp`
 - Home Assistant dashboard (visuell view):
   - `docs/home-assistant-dashboard-visual-sections-wide.yaml`
+- ESPHome UVC/Ozone testprofil (for modeller som faktisk har disse funksjonene):
+  - `firmware/esphome-ha/mspa-uvc-ozone-test.yaml`
 - Homey lokal HTTP firmware:
   - `firmware/homey-http/platformio.ini`
   - `firmware/homey-http/src/main.cpp`

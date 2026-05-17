@@ -1,0 +1,629 @@
+esphome:
+  name: mspa-uvc-ozone-test
+  friendly_name: MSpa UVC Ozone Test
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          id(boot_ms) = millis();
+          id(restore_pending) = true;
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+  logs:
+    uart: NONE
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "MSpa-Mist-Fallback"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 9600
+
+output:
+  - platform: gpio
+    id: disp_clk
+    pin: GPIO22
+  - platform: gpio
+    id: disp_dio
+    pin: GPIO23
+
+globals:
+  - id: current_temp_val
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: have_current_temp
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: target_temp_val
+    type: int
+    restore_value: yes
+    initial_value: '38'
+  - id: bubble_level_val
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: desired_filter_val
+    type: bool
+    restore_value: yes
+    initial_value: 'true'
+  - id: desired_heater_val
+    type: bool
+    restore_value: yes
+    initial_value: 'true'
+  - id: desired_bubbles_val
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: desired_ozone_val
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: desired_uvc_val
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: heater_call_for_heat
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  - id: bath_status_val
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: status_18_val
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: status_1a_val
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: spa_online
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: last_rx_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: restore_pending
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  - id: boot_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: restore_delay_s
+    type: int
+    restore_value: yes
+    initial_value: '60'
+  - id: temp_multiplier
+    type: int
+    restore_value: yes
+    initial_value: '1'
+
+sensor:
+  - platform: template
+    name: "MSpa Current Temperature"
+    id: current_temp
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: never
+  - platform: template
+    name: "MSpa Bath Status Code"
+    id: bath_status_code
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    name: "MSpa Status 0x18"
+    id: status_18_sensor
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    name: "MSpa Status 0x1A"
+    id: status_1a_sensor
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    name: "MSpa Status 0x0E"
+    id: status_0e_sensor
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    name: "MSpa Status 0x15"
+    id: status_15_sensor
+    accuracy_decimals: 0
+    update_interval: never
+
+binary_sensor:
+  - platform: template
+    name: "MSpa Online"
+    id: online_status
+    lambda: |-
+      return id(spa_online);
+  - platform: template
+    name: "MSpa Running (from status)"
+    id: running_status
+    lambda: |-
+      return id(bath_status_val) == 0x03;
+
+text_sensor:
+  - platform: template
+    name: "MSpa Raw Status"
+    id: raw_status
+    update_interval: never
+
+climate:
+  - platform: thermostat
+    name: "MSpa Thermostat"
+    id: mspa_thermostat
+    sensor: current_temp
+    min_heating_off_time: 30s
+    min_heating_run_time: 30s
+    min_idle_time: 30s
+    visual:
+      min_temperature: 15 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    heat_action:
+      - switch.turn_on: heater_switch
+    idle_action:
+      - switch.turn_off: heater_switch
+    target_temperature_change_action:
+      - lambda: |-
+          id(target_temp_val) = (int) roundf(id(mspa_thermostat).target_temperature);
+      - number.set:
+          id: target_temp
+          value: !lambda 'return id(target_temp_val);'
+
+number:
+  - platform: template
+    name: "MSpa Target Temperature"
+    id: target_temp
+    min_value: 15
+    max_value: 40
+    step: 1
+    mode: box
+    restore_value: true
+    optimistic: true
+    initial_value: 38
+    unit_of_measurement: "°C"
+    on_value:
+      then:
+        - lambda: |-
+            id(target_temp_val) = (int)x;
+        - script.execute:
+            id: send_frame
+            code: 0x04
+            value: !lambda 'return id(target_temp_val) * id(temp_multiplier);'
+  - platform: template
+    name: "MSpa Restore Delay"
+    id: restore_delay
+    min_value: 10
+    max_value: 300
+    step: 5
+    restore_value: true
+    optimistic: true
+    initial_value: 60
+    unit_of_measurement: "s"
+    on_value:
+      then:
+        - lambda: |-
+            id(restore_delay_s) = (int)x;
+  - platform: template
+    name: "MSpa Thermostat Hysteresis"
+    id: thermostat_hysteresis
+    min_value: 0.5
+    max_value: 2.0
+    step: 0.5
+    mode: box
+    restore_value: true
+    optimistic: true
+    initial_value: 1.0
+    unit_of_measurement: "°C"
+  - platform: template
+    name: "MSpa Temperature Multiplier"
+    id: temp_multiplier_num
+    min_value: 1
+    max_value: 2
+    step: 1
+    restore_value: true
+    optimistic: true
+    initial_value: 1
+    on_value:
+      then:
+        - lambda: |-
+            id(temp_multiplier) = (int)x;
+  - platform: template
+    name: "MSpa Bubble Level"
+    id: bubble_level_num
+    min_value: 0
+    max_value: 3
+    step: 1
+    mode: box
+    restore_value: true
+    optimistic: true
+    initial_value: 0
+    on_value:
+      then:
+        - lambda: |-
+            id(bubble_level_val) = (int)x;
+            id(desired_bubbles_val) = id(bubble_level_val);
+            id(bubbles_switch).publish_state(id(desired_bubbles_val) > 0);
+        - script.execute:
+            id: send_frame
+            code: 0x03
+            value: !lambda 'return id(bubble_level_val);'
+
+switch:
+  - platform: template
+    name: "MSpa Auto Restore Enabled"
+    id: auto_restore_enabled
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
+  - platform: template
+    name: "MSpa Filter"
+    id: filter_switch
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(desired_filter_val) = false;
+            id(desired_heater_val) = false;
+        - script.execute:
+            id: send_frame
+            code: 0x02
+            value: 0
+        - switch.turn_off: heater_switch
+    on_turn_on:
+      then:
+        - lambda: id(desired_filter_val) = true;
+        - script.execute:
+            id: send_frame
+            code: 0x02
+            value: 1
+
+  - platform: template
+    name: "MSpa Heater"
+    id: heater_switch
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(desired_heater_val) = true;
+            id(desired_filter_val) = true;
+            id(heater_call_for_heat) = true;
+        - switch.turn_on: filter_switch
+        - script.execute:
+            id: send_frame
+            code: 0x01
+            value: 1
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(desired_heater_val) = false;
+            id(heater_call_for_heat) = false;
+        - script.execute:
+            id: send_frame
+            code: 0x01
+            value: 0
+
+  - platform: template
+    name: "MSpa Bubbles"
+    id: bubbles_switch
+    restore_mode: RESTORE_DEFAULT_OFF
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(bubble_level_val) = 1;
+            id(desired_bubbles_val) = 1;
+        - script.execute:
+            id: send_frame
+            code: 0x03
+            value: 1
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(bubble_level_val) = 0;
+            id(desired_bubbles_val) = 0;
+        - script.execute:
+            id: send_frame
+            code: 0x03
+            value: 0
+
+  - platform: template
+    name: "MSpa Ozone (Experimental)"
+    id: ozone_switch
+    restore_mode: RESTORE_DEFAULT_OFF
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: id(desired_ozone_val) = true;
+        - script.execute:
+            id: send_frame
+            code: 0x0E
+            value: 1
+    on_turn_off:
+      then:
+        - lambda: id(desired_ozone_val) = false;
+        - script.execute:
+            id: send_frame
+            code: 0x0E
+            value: 0
+
+  - platform: template
+    name: "MSpa UVC (Experimental)"
+    id: uvc_switch
+    restore_mode: RESTORE_DEFAULT_OFF
+    optimistic: true
+    on_turn_on:
+      then:
+        - lambda: id(desired_uvc_val) = true;
+        - script.execute:
+            id: send_frame
+            code: 0x15
+            value: 1
+    on_turn_off:
+      then:
+        - lambda: id(desired_uvc_val) = false;
+        - script.execute:
+            id: send_frame
+            code: 0x15
+            value: 0
+
+button:
+  - platform: template
+    name: "MSpa Restore Desired Mode"
+    id: restore_button
+    on_press:
+      then:
+        - script.execute: restore_desired_mode
+
+script:
+  - id: send_frame
+    mode: queued
+    parameters:
+      code: int
+      value: int
+    then:
+      - lambda: |-
+          const uint8_t start = 0xA5;
+          const uint8_t c = static_cast<uint8_t>(code & 0xFF);
+          const uint8_t v = static_cast<uint8_t>(value & 0xFF);
+          const uint8_t chk = (start + c + v) & 0xFF;
+          const uint8_t frame[4] = {start, c, v, chk};
+          id(uart_bus).write_array(frame, 4);
+          ESP_LOGI("mspa_tx", "TX: %02X %02X %02X %02X", frame[0], frame[1], frame[2], frame[3]);
+
+  - id: restore_desired_mode
+    mode: restart
+    then:
+      - if:
+          condition:
+            and:
+              - switch.is_on: auto_restore_enabled
+              - binary_sensor.is_on: online_status
+          then:
+            - switch.turn_on: filter_switch
+            - delay: 800ms
+            - number.set:
+                id: target_temp
+                value: !lambda 'return id(target_temp_val);'
+            - delay: 800ms
+            - if:
+                condition:
+                  lambda: |-
+                    return id(bath_status_val) == 0x03 || id(bath_status_val) == 0x00;
+                then:
+                  - switch.turn_on: heater_switch
+                else:
+                  - logger.log: "Restore skipped heater: unsafe/unknown status"
+
+interval:
+  - interval: 200ms
+    then:
+      - lambda: |-
+          uint8_t b;
+          static uint8_t buffer[4];
+          static int idx = 0;
+
+          while (id(uart_bus).read_byte(&b)) {
+            if (b == 0xA5) {
+              idx = 0;
+              buffer[idx++] = b;
+              continue;
+            }
+            if (idx > 0 && idx < 4) {
+              buffer[idx++] = b;
+              if (idx == 4) {
+                const uint8_t chk = (buffer[0] + buffer[1] + buffer[2]) & 0xFF;
+                if (chk == buffer[3]) {
+                  id(last_rx_ms) = millis();
+                  id(spa_online) = true;
+                  const uint8_t code = buffer[1];
+                  const uint8_t value = buffer[2];
+
+                  char hexbuf[32];
+                  snprintf(hexbuf, sizeof(hexbuf), "%02X %02X %02X %02X", buffer[0], buffer[1], buffer[2], buffer[3]);
+                  id(raw_status).publish_state(hexbuf);
+
+                  if (code == 0x06) {
+                    id(current_temp_val) = value / 2.0f;
+                    id(have_current_temp) = true;
+                    id(current_temp).publish_state(id(current_temp_val));
+                  } else if (code == 0x08) {
+                    id(bath_status_val) = value;
+                    id(bath_status_code).publish_state(value);
+                  } else if (code == 0x18) {
+                    id(status_18_val) = value;
+                    id(status_18_sensor).publish_state(value);
+                  } else if (code == 0x1A) {
+                    id(status_1a_val) = value;
+                    id(status_1a_sensor).publish_state(value);
+                  } else if (code == 0x0E) {
+                    id(status_0e_sensor).publish_state(value);
+                  } else if (code == 0x15) {
+                    id(status_15_sensor).publish_state(value);
+                  }
+                }
+                idx = 0;
+              }
+            }
+          }
+
+          if (id(last_rx_ms) > 0 && (millis() - id(last_rx_ms) > 10000)) {
+            id(spa_online) = false;
+          }
+
+  - interval: 3s
+    then:
+      - lambda: |-
+          // Periodic hold: keep desired state alive on the bus.
+          // IMPORTANT: this uses desired_* values from HA commands, not RX-derived state.
+          const int bubbles = id(desired_bubbles_val) > 0 ? id(desired_bubbles_val) : 0;
+          const int filter = (id(desired_filter_val) || id(desired_heater_val) || bubbles > 0) ? 1 : 0;
+          const float target = static_cast<float>(id(target_temp_val));
+          const float hysteresis = id(thermostat_hysteresis).state;
+
+          // Thermostat with hysteresis:
+          // - start heating at/below target - hysteresis
+          // - stop heating at/above target + hysteresis
+          if (!id(desired_heater_val)) {
+            id(heater_call_for_heat) = false;
+          } else if (!id(have_current_temp)) {
+            // On startup / missing temp feedback, allow heating request.
+            id(heater_call_for_heat) = true;
+          } else if (id(current_temp_val) <= (target - hysteresis)) {
+            id(heater_call_for_heat) = true;
+          } else if (id(current_temp_val) >= (target + hysteresis)) {
+            id(heater_call_for_heat) = false;
+          }
+
+          const int heater = (id(desired_heater_val) && filter && id(heater_call_for_heat)) ? 1 : 0;
+          const int setpoint = id(target_temp_val) * id(temp_multiplier);
+
+          auto send = [&](uint8_t c, uint8_t v) {
+            const uint8_t chk = (0xA5 + c + v) & 0xFF;
+            const uint8_t frame[4] = {0xA5, c, v, chk};
+            id(uart_bus).write_array(frame, 4);
+            ESP_LOGD("mspa_tx", "TX hold: %02X %02X %02X %02X", frame[0], frame[1], frame[2], frame[3]);
+          };
+
+          send(0x02, filter);         // filter on/off
+          send(0x01, heater);         // heater on/off
+          send(0x03, bubbles);        // bubbles level 0..3
+          send(0x04, setpoint);       // target temperature
+          send(0x0E, id(desired_ozone_val) ? 0x01 : 0x00); // ozone (experimental)
+          send(0x15, id(desired_uvc_val) ? 0x01 : 0x00);   // uvc (experimental)
+          send(0x16, 0x00);           // heartbeat (needed by some models)
+
+  - interval: 2s
+    then:
+      - if:
+          condition:
+            lambda: |-
+              if (!id(restore_pending)) return false;
+              if (!id(auto_restore_enabled).state) return false;
+              const uint32_t elapsed = (millis() - id(boot_ms)) / 1000;
+              return elapsed >= (uint32_t)id(restore_delay_s);
+          then:
+            - lambda: id(restore_pending) = false;
+            - script.execute: restore_desired_mode
+
+  - interval: 1s
+    then:
+      - lambda: |-
+          // HTM1650/TM1650 bitbang display update on GPIO22/23.
+          static bool init_done = false;
+          static const uint8_t addr_digit[4] = {0x68, 0x6A, 0x6C, 0x6E};
+          static const uint8_t addr_ctrl[4]  = {0x48, 0x4A, 0x4C, 0x4E};
+          static const uint8_t seg[10] = {0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x6F};
+
+          auto dly = []() { delayMicroseconds(8); };
+          auto dio_out = []() { pinMode(23, OUTPUT); };
+          auto dio_in = []() { pinMode(23, INPUT_PULLUP); };
+          auto clk_h = []() { id(disp_clk).turn_on(); };
+          auto clk_l = []() { id(disp_clk).turn_off(); };
+          auto dio_h = []() { id(disp_dio).turn_on(); };
+          auto dio_l = []() { id(disp_dio).turn_off(); };
+
+          auto start = [&]() {
+            dio_out(); dio_h(); clk_h(); dly(); dio_l(); dly(); clk_l();
+          };
+          auto stop = [&]() {
+            dio_out(); clk_l(); dio_l(); dly(); clk_h(); dly(); dio_h();
+          };
+          auto write_byte = [&](uint8_t b) {
+            dio_out();
+            for (int i = 0; i < 8; i++) {
+              clk_l();
+              if (b & 0x01) dio_h(); else dio_l();
+              dly();
+              clk_h();
+              dly();
+              b >>= 1;
+            }
+            clk_l();
+            dio_in(); // ACK ignored
+            dly();
+            clk_h();
+            dly();
+            clk_l();
+          };
+          auto write_reg = [&](uint8_t a, uint8_t v) {
+            start();
+            write_byte(a);
+            write_byte(v);
+            stop();
+          };
+
+          if (!init_done) {
+            for (int i = 0; i < 4; i++) write_reg(addr_ctrl[i], 0x11);
+            for (int i = 0; i < 4; i++) write_reg(addr_digit[i], 0x00);
+            init_done = true;
+          }
+
+          int t = (int) roundf(id(current_temp_val) * 10.0f);
+          if (t < 0) t = 0;
+          if (t > 999) t = 999;
+          int h = (t / 100) % 10;
+          int d = (t / 10) % 10;
+          int o = t % 10;
+          uint8_t d0 = (t >= 100) ? seg[h] : 0x00;
+          uint8_t d1 = ((t >= 10) ? seg[d] : 0x00) | 0x80; // decimal point
+          uint8_t d2 = seg[o];
+          write_reg(addr_digit[0], d0);
+          write_reg(addr_digit[1], d1);
+          write_reg(addr_digit[2], d2);
+          write_reg(addr_digit[3], 0x00);
