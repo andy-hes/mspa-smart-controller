@@ -8,6 +8,26 @@ Denne versjonen bruker etablert grunnlag fra:
 
 Mappingen under er derfor referansebasert, men skal fortsatt behandles modellspesifikt.
 
+## Verifisert på MSpa Mist (felt-test 2026-05)
+
+Funn fra live test med dedikert ESP32 lab-sniffer:
+
+- Enkel engangskommando holder ikke drift stabil over tid.
+- Stabil drift krever periodisk hold-sekvens.
+- Verifisert stabilt med hold hver ca `3000ms`.
+- Fungerende sekvens:
+  - `0x02` filter
+  - `0x01` heater
+  - `0x03` bubbles
+  - `0x04` target temperature
+  - `0x16` heartbeat
+- `0x08`:
+  - `0x00` = idle
+  - `0x03` = running
+- `0x06` er fortsatt vanntemperatur (`value / 2` i grader C).
+- `0x12 = 0x01` observeres under aktiv boblemodus.
+- `heater` krever filter aktiv.
+
 ## Referansemodell
 
 Begge kildene beskriver:
@@ -41,7 +61,6 @@ UVC/ozone er ikke aktivert som standard for Mist-modell.
 - `A5 06 4B F6` -> current temp 37.5 C (0x4B / 2)
 
 ## Neste steg
-
-- Lage ESPHome-profil for MSpa Mist med disse kodene
-- Holde UVC/ozone disabled som default i all konfig
-- Verifisere target-temperature multiplier (x1 vs x2) på aktuell installasjon
+- Verifisere robusthet over lengre tid med original fjernkontroll parallelt tilkoblet.
+- Bekrefte full bit-mapping for `0x1A` og `0x18` i alle driftsmodi.
+- Holde UVC/ozone disabled som default i all konfig.

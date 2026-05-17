@@ -86,3 +86,75 @@ VCC | strøm | kun hvis verifisert | VIN/5V (valgfritt)
 - Home Assistant-firmware forventer UART på `GPIO16/17`.
 - UVC/Ozon er ikke aktivert som standard i Mist-oppsettet.
 - Auto-restore-logikk kjører lokalt på ESP32, men skal kun brukes etter trygg statusbekreftelse.
+
+## PCB-anbefaling: egen remote-erstatning
+
+Hvis du vil erstatte original fjernkontroll med eget kort, anbefales en modulær oppbygning:
+
+### 1) Hovedblokker
+
+- MCU/Wi-Fi:
+  - `ESP32-WROOM-32E` (god støtte, rimelig, robust)
+- Strøm:
+  - 5V inn fra spa-remote-kabel (hvis verifisert stabil)
+  - buck/LDO til 3.3V med god margin
+- Bussgrensesnitt:
+  - UART RX/TX med nivåtilpasning og seriebeskyttelse
+- Brukergrensesnitt:
+  - 6 taktile knapper: Heater, Filter, Bobler, Timer, Temp+, Temp-
+  - 3-sifret 7-segment (med driver)
+  - buzzer (valgfritt)
+
+### 2) Komponenter du typisk trenger
+
+- ESP32-modul:
+  - Espressif `ESP32-WROOM-32E`
+- 3.3V regulator:
+  - f.eks. `AP2112K-3.3` eller buck hvis 5V-linjen er støyete
+- Nivåtilpasning SPA->ESP (kritisk):
+  - enkel løsning: motstandsdelere per inngang + seriemotstand
+  - robust løsning: dedikert logic level translator
+- ESD/overspenning:
+  - TVS-diode på kabelinngang
+  - ESD-beskyttelse på knapper/IO-linjer
+- Knapper:
+  - 6x IP67-kompatible taktile eller standard taktile med tett frontmembran
+- Display:
+  - 3-sifret 7-segment + driver (f.eks. TM1637-lignende løsning)
+- Programmering/debug:
+  - USB-UART header (TX/RX/GND/3V3/EN/IO0)
+  - reset/boot-knapper
+- Mekanisk:
+  - JST-kontakt matchende spa-kabel
+  - pakning/silikonmembran for fukt
+  - konformal coating (unntatt kontakter/knapper)
+
+### 3) Viktige designvalg
+
+- RX-beskyttelse først:
+  - ESP32 skal aldri se direkte 5V på GPIO.
+- Grounding:
+  - stjernejord mellom strøm, UART og displaydriver.
+- EMC/støy:
+  - korte UART-spor, jordplan, avkoblingskondensatorer nær alle IC-er.
+- Servicevennlig:
+  - testpunkter for GND/5V/3V3/UART RX/TX.
+
+### 4) Firmware-strategi for dette kortet
+
+- Samme hardware skal kunne flashes med:
+  - ESPHome-variant (Home Assistant)
+  - Homey HTTP-variant
+- Hold protokollkjerne felles:
+  - periodic hold (3s)
+  - filter/heater-avhengighet
+  - temp-betinget heater
+
+### 5) Fjernkontroll parallelt vs erstatning
+
+- Parallell med original remote:
+  - mulig, men må langtidstestes for busskollisjon.
+- Full erstatning:
+  - enklere deterministisk styring
+  - mindre risiko for kolliderende kommandoer
+  - anbefalt sluttmål hvis stabilitet er viktigst.

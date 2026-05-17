@@ -64,6 +64,20 @@ Sikkerhetslogikk:
 - status/temperature leses fra UART (`0x08`, `0x06`)
 - UVC/Ozone ikke aktivert i denne Mist-fokuserte varianten
 
+## Verifisert hold-logikk
+
+For stabil drift mot MSpa Mist sender firmwaren periodisk hold hvert `3000 ms`:
+- `A5 02 <filter> <chk>`
+- `A5 01 <heater> <chk>`
+- `A5 03 <bubbles> <chk>`
+- `A5 04 <target_raw> <chk>`
+- `A5 16 00 BB` (heartbeat)
+
+Logikk i firmware:
+- filter aktiveres automatisk hvis heater eller bubbles er ønsket
+- heater holdes kun når filter er aktiv og `current_temp < target_temp`
+- target sendes i hver hold-syklus
+
 ## ESP32 lokal webside og lagrede innstillinger
 
 Homey-firmwaren har nå lokal webside på ESP32:
@@ -114,6 +128,12 @@ Hvis spaet blir slått på igjen via original fjernkontroll:
 - `auto_restore_enabled` blir automatisk aktivert igjen
 
 Det er lagt inn oppstart/restore guard-tid for å unngå at ESP32 mistolker normal reboot/restore som manuell avstenging.
+
+## Teststatus
+
+- Stabil styring er verifisert i direkte bus-test uten original remote tilkoblet.
+- Neste anbefalte verifisering er langtidstest med original remote parallelt tilkoblet for å bekrefte kollisjonshåndtering over tid.
+- Hvis parallell drift gir ustabilitet, bruk dedikert ESP-basert remote-erstatning.
 
 ## Lokal simulering uten ESP32
 

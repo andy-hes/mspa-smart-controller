@@ -21,14 +21,23 @@
 #ifndef UART_TX_PIN
 #define UART_TX_PIN 17
 #endif
+static const int DISP_DIO_PIN = 23;
+static const int DISP_CLK_PIN = 22;
 
 static const uint8_t START_BYTE = 0xA5;
 static const uint32_t WIFI_CONNECT_TIMEOUT_MS = 120000;
 static const uint32_t RESTORE_DELAY_MS = 60000;
 static const uint32_t ONLINE_TIMEOUT_MS = 10000;
 static const uint32_t REMOTE_STATUS_GUARD_MS = 90000;
+static const uint32_t HOLD_INTERVAL_MS = 3000;
 static const char* AP_SSID = "MSpa-Setup";
 static const char* AP_PASSWORD = "mspasetup";
+static constexpr uint8_t TM_ADDR_DIGIT[4] = {0x68, 0x6A, 0x6C, 0x6E};
+static constexpr uint8_t TM_ADDR_CTRL[4] = {0x48, 0x4A, 0x4C, 0x4E};
+static const uint8_t SEG_MAP[10] = {
+  0x3F, 0x06, 0x5B, 0x4F, 0x66,
+  0x6D, 0x7D, 0x07, 0x7F, 0x6F
+};
 
 struct SpaState {
   bool filter_on = true;
@@ -58,6 +67,72 @@ String wifiPassword;
 
 uint8_t checksum(uint8_t cmd, uint8_t value) {
   return static_cast<uint8_t>((START_BYTE + cmd + value) & 0xFF);
+}
+
+void tmDelay() { delayMicroseconds(8); }
+void tmStart() {
+  pinMode(DISP_DIO_PIN, OUTPUT);
+  digitalWrite(DISP_DIO_PIN, HIGH);
+  digitalWrite(DISP_CLK_PIN, HIGH);
+  tmDelay();
+  digitalWrite(DISP_DIO_PIN, LOW);
+  tmDelay();
+  digitalWrite(DISP_CLK_PIN, LOW);
+}
+void tmStop() {
+  pinMode(DISP_DIO_PIN, OUTPUT);
+  digitalWrite(DISP_CLK_PIN, LOW);
+  digitalWrite(DISP_DIO_PIN, LOW);
+  tmDelay();
+  digitalWrite(DISP_CLK_PIN, HIGH);
+  tmDelay();
+  digitalWrite(DISP_DIO_PIN, HIGH);
+}
+void tmWriteByte(uint8_t b) {
+  pinMode(DISP_DIO_PIN, OUTPUT);
+  for (uint8_t i = 0; i < 8; i++) {
+    digitalWrite(DISP_CLK_PIN, LOW);
+    digitalWrite(DISP_DIO_PIN, (b & 0x01) ? HIGH : LOW);
+    tmDelay();
+    digitalWrite(DISP_CLK_PIN, HIGH);
+    tmDelay();
+    b >>= 1;
+  }
+  digitalWrite(DISP_CLK_PIN, LOW);
+  pinMode(DISP_DIO_PIN, INPUT_PULLUP); // ACK
+  tmDelay();
+  digitalWrite(DISP_CLK_PIN, HIGH);
+  tmDelay();
+  digitalWrite(DISP_CLK_PIN, LOW);
+}
+void tmWriteReg(uint8_t addr, uint8_t data) {
+  tmStart();
+  tmWriteByte(addr);
+  tmWriteByte(data);
+  tmStop();
+}
+void tmInit() {
+  pinMode(DISP_CLK_PIN, OUTPUT);
+  pinMode(DISP_DIO_PIN, OUTPUT);
+  digitalWrite(DISP_CLK_PIN, HIGH);
+  digitalWrite(DISP_DIO_PIN, HIGH);
+  for (int i = 0; i < 4; i++) tmWriteReg(TM_ADDR_CTRL[i], 0x11);
+  for (int i = 0; i < 4; i++) tmWriteReg(TM_ADDR_DIGIT[i], 0x00);
+}
+void tmShowTemp1dp(float tempC) {
+  int v = static_cast<int>(roundf(tempC * 10.0f));
+  if (v < 0) v = 0;
+  if (v > 999) v = 999;
+  int h = (v / 100) % 10;
+  int t = (v / 10) % 10;
+  int o = v % 10;
+  uint8_t d0 = (v >= 100) ? SEG_MAP[h] : 0x00;
+  uint8_t d1 = ((v >= 10) ? SEG_MAP[t] : 0x00) | 0x80; // decimal point
+  uint8_t d2 = SEG_MAP[o];
+  tmWriteReg(TM_ADDR_DIGIT[0], d0);
+  tmWriteReg(TM_ADDR_DIGIT[1], d1);
+  tmWriteReg(TM_ADDR_DIGIT[2], d2);
+  tmWriteReg(TM_ADDR_DIGIT[3], 0x00);
 }
 
 void saveSpaSettings() {
@@ -365,14 +440,17 @@ void readFrames() {
 void writeControlFrames() {
   ensureSafeHeaterState();
 
-  uint8_t filterVal = state.desired_run && state.filter_on ? 0x01 : 0x00;
-  uint8_t heaterVal = state.desired_run && state.heater_on && state.filter_on ? 0x01 : 0x00;
+  bool filterWanted = state.desired_run && (state.filter_on || state.heater_on || state.bubbles_level > 0);
+  bool tempNeedsHeat = state.current_temp_c < static_cast<float>(state.target_temp);
+  uint8_t filterVal = filterWanted ? 0x01 : 0x00;
+  uint8_t heaterVal = (state.desired_run && state.heater_on && filterWanted && tempNeedsHeat) ? 0x01 : 0x00;
   uint8_t bubbleVal = state.bubbles_level;
 
   sendFrame(0x02, filterVal);
   sendFrame(0x01, heaterVal);
   sendFrame(0x03, bubbleVal);
   sendFrame(0x04, static_cast<uint8_t>(state.target_temp * state.temp_multiplier));
+  sendFrame(0x16, 0x00);
 }
 
 void startFallbackAp() {
@@ -411,6 +489,7 @@ void connectWifiOrFallback() {
 void setup() {
   Serial.begin(115200);
   Serial2.begin(UART_BAUD, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
+  tmInit();
 
   state.boot_ms = millis();
   state.restore_guard_until_ms = RESTORE_DELAY_MS + 30000;
@@ -424,6 +503,7 @@ void setup() {
 
 void loop() {
   static uint32_t last_tx = 0;
+  static uint32_t last_display = 0;
 
   if (state.ap_mode) {
     dnsServer.processNextRequest();
@@ -431,9 +511,13 @@ void loop() {
 
   readFrames();
 
-  if (millis() - last_tx >= 1000) {
+  if (millis() - last_tx >= HOLD_INTERVAL_MS) {
     last_tx = millis();
     writeControlFrames();
+  }
+  if (millis() - last_display >= 500) {
+    last_display = millis();
+    tmShowTemp1dp(state.current_temp_c);
   }
 
   if (state.restore_pending && state.auto_restore_enabled && state.desired_run) {

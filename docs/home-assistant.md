@@ -20,6 +20,20 @@ Sikker restore:
 - bubbles restore default av
 - UVC/Ozone er ikke eksponert i Mist-profilen
 
+## Verifisert styringslogikk (MSpa Mist)
+
+Denne firmware-varianten er oppdatert til verifisert hold-logikk:
+- periodisk hold hvert `3000 ms`
+- sender: filter (`0x02`), heater (`0x01`), bubbles (`0x03`), target (`0x04`), heartbeat (`0x16`)
+
+Praktisk logikk:
+- filter holdes aktiv når filter/heater/bubbles er on
+- heater holdes kun aktiv når:
+  - heater er on
+  - filter er aktiv
+  - `current_temp < target_temp`
+- bubbles holdes etter valgt nivå
+
 Viktig:
 - Sett hemmeligheter i `secrets.yaml`: wifi, api key, ota passord, fallback AP-passord.
 - Verifiser spenningsnivå før tilkobling.
@@ -45,7 +59,16 @@ Merk:
   - `binary_sensor.mspa_online`
   - `switch.mspa_auto_restore_enabled`
   - `button.mspa_restore_desired_mode`
-  - `text_sensor.mspa_raw_status`
+- `text_sensor.mspa_raw_status`
+
+## Testet oppsett
+
+Felt-testene ble kjørt med:
+- MSpa Mist buss
+- ESP32 på UART 9600 8N1
+- statusverifisering mot `0x08`, `0x06`, `0x1A`, `0x12`, `0x18`
+
+Se full testoppsummering i `README.md` og `docs/protocol.md`.
 
 ## Automasjon for drift og strømbrudd
 
