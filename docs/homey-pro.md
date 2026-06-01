@@ -1,167 +1,246 @@
-# Homey Pro
+# Homey Pro / Ren Wi-Fi firmware
 
-Ferdig første versjon:
+Denne firmwarevarianten er laget for en ren ESP32-løsning uten ESPHome, med lokal webside, HTTP API og MQTT:
+
 - `firmware/homey-http/platformio.ini`
 - `firmware/homey-http/src/main.cpp`
-- `firmware/homey-http/flash.ps1`
+- `firmware/homey-http/include/mspa_tm1650_display.h`
 
-HTTP-endepunkt (lokalt LAN):
-- GET `/api/status`
-- POST `/api/filter/on`
-- POST `/api/filter/off`
-- POST `/api/heater/on`
-- POST `/api/heater/off`
-- POST `/api/bubbles/on`
-- POST `/api/bubbles/off`
-- POST `/api/target-temperature` (`value` 20-40)
-- POST `/api/restore`
-- POST `/api/auto-restore/on`
-- POST `/api/auto-restore/off`
+Den er ment for Homey Pro, men kan også brukes helt uten Homey hvis du bare vil styre lokalt via HTTP eller MQTT.
 
-## Bygg og flashing til ESP32
+## Implementert funksjonalitet
 
-PlatformIO er brukt for denne firmwaren. På denne maskinen kan kommandoene kjøres via Python-modulen:
+Wi-Fi-firmwaren har nå:
+
+- lokal webside på ESP32
+- lokal HTTP API for status og styring
+- MQTT-klient
+- MQTT-konfigurasjon via webgrensesnitt
+- TM1650-display på eget remote-PCB
+- PCB-knapper for lokal styring
+- PCB-status-LED-er
+- restore-logikk etter strømbrudd
+
+## Verifisert PCB-mapping
+
+- display:
+  - `DIO = GPIO23`
+  - `CLK = GPIO22`
+- knapper:
+  - `GPIO13` mode/restore
+  - `GPIO32` heater
+  - `GPIO33` filter
+  - `GPIO26` auto-restore
+  - `GPIO25` bubbles
+  - `GPIO14` temp down
+  - `GPIO27` temp up
+- LED:
+  - `GPIO21` filter aktiv
+  - `GPIO19` heater-funksjon aktiv
+  - `GPIO18` bubbles aktiv
+  - `GPIO5` feil/offline
+  - `GPIO4` aktiv oppvarming
+
+## Displayoppførsel
+
+Displayet bruker samme verifiserte strategi som PCB-testfirmwaren og ESPHome:
+
+- `TM1650` over `Wire`
+- `DIO=GPIO23`
+- `CLK=GPIO22`
+- `888` ved boot
+- full styrke i 10 sekunder etter knappetrykk
+- dimmet idle-visning etterpå
+
+Tekster:
+
+- `AP ` når fallback hotspot er aktiv
+- `rSt` mens restore fortsatt venter
+- `OFF` når spa ikke er online
+- `Con` når temperatur ennå ikke er kjent
+- temperatur med ett desimalpunkt ved normal drift
+
+## HTTP API
+
+Støttede endepunkt:
+
+- `GET /api/status`
+- `POST /api/filter/on`
+- `POST /api/filter/off`
+- `POST /api/heater/on`
+- `POST /api/heater/off`
+- `POST /api/bubbles/on`
+- `POST /api/bubbles/off`
+- `POST /api/target-temperature`
+- `POST /api/restore`
+- `POST /api/auto-restore/on`
+- `POST /api/auto-restore/off`
+- `POST /api/wifi`
+- `POST /api/mqtt`
+
+`/api/status` returnerer JSON med blant annet:
+
+- online
+- current temperature
+- target temperature
+- filter/heater/bubbles
+- auto restore
+- bath status
+- Wi-Fi-status
+- MQTT-status
+
+## MQTT
+
+MQTT kan aktiveres og konfigureres fra webgrensesnittet.
+
+Felt som lagres i ESP32:
+
+- enabled
+- host
+- port
+- username
+- password
+- base topic
+
+### Publiserte topics
+
+Ut fra `base_topic`, for eksempel `mspa/controller`:
+
+- `mspa/controller/availability`
+- `mspa/controller/status`
+- `mspa/controller/state/filter`
+- `mspa/controller/state/heater`
+- `mspa/controller/state/bubbles_level`
+- `mspa/controller/state/target_temperature_c`
+- `mspa/controller/state/current_temperature_c`
+- `mspa/controller/state/online`
+- `mspa/controller/state/auto_restore_enabled`
+
+### Kommando-topics
+
+- `mspa/controller/command/filter/set`
+- `mspa/controller/command/heater/set`
+- `mspa/controller/command/bubbles/set`
+- `mspa/controller/command/target_temperature/set`
+- `mspa/controller/command/auto_restore/set`
+- `mspa/controller/command/restore`
+
+Payload:
+
+- boolske kommandoer godtar `on/off`, `true/false`, `1/0`, `yes/no`
+- `bubbles/set` forventer `0..3`
+- `target_temperature/set` forventer `15..40`
+
+## Restore-logikk
+
+Restore i denne firmwaren er oppdatert til å matche ESPHome-retningen:
+
+- venter standard `60` sekunder etter boot
+- sender bare heartbeat mens `restore_pending` er aktiv
+- bruker lagret ønsket tilstand som sann kilde
+- bobler starter ikke automatisk hvis de ikke var lagret som på
+- filter aktiveres hvis heater eller bubbles krever det
+- heater aktiveres bare når temperatur og ønsket tilstand tilsier det
+
+## Installering
+
+### 1. Bygg
+
+Kjør fra repo-roten eller med `-d` som peker til firmwaremappen:
 
 ```powershell
 python -m platformio run -d firmware/homey-http
 ```
 
-Finn USB/COM-port:
+### 2. Finn serieport
 
 ```powershell
 python -m platformio device list
 ```
 
-Flash til ESP32, eksempel med `COM3`:
+### 3. Flash
+
+Eksempel med `COM7`:
 
 ```powershell
-python -m platformio run -d firmware/homey-http -t upload --upload-port COM3
+python -m platformio run -d firmware/homey-http -t upload --upload-port COM7
 ```
 
-Alternativt kan den ferdige flashfilen brukes:
+### 4. Seriell monitor
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File firmware/homey-http/flash.ps1 -Port COM3
+python -m platformio device monitor -d firmware/homey-http --port COM7 --baud 115200
 ```
 
-Flash og åpne seriell monitor etterpå:
+## Første oppsett etter flashing
 
-```powershell
-powershell -ExecutionPolicy Bypass -File firmware/homey-http/flash.ps1 -Port COM3 -Monitor
+### Hvis Wi-Fi allerede er konfigurert
+
+1. finn IP-adressen i seriellmonitoren
+2. åpne:
+
+```text
+http://<esp-ip>/
 ```
 
-Seriell monitor uten flashing:
+### Hvis Wi-Fi ikke er konfigurert eller ikke virker
 
-```powershell
-python -m platformio device monitor -d firmware/homey-http --port COM3
-```
+ESP32 starter fallback hotspot:
 
-Wi-Fi trenger ikke hardkodes. Første oppsett kan gjøres via fallback hotspot hvis ESP32 ikke finner lagret nettverk.
-
-Sikkerhetslogikk:
-- auto-restore etter boot (60 sek default)
-- heater tvinges av hvis filter er av
-- status/temperature leses fra UART (`0x08`, `0x06`)
-- UVC/Ozone ikke aktivert i denne Mist-fokuserte varianten
-
-## Verifisert hold-logikk
-
-For stabil drift mot MSpa Mist sender firmwaren periodisk hold hvert `3000 ms`:
-- `A5 02 <filter> <chk>`
-- `A5 01 <heater> <chk>`
-- `A5 03 <bubbles> <chk>`
-- `A5 04 <target_raw> <chk>`
-- `A5 16 00 BB` (heartbeat)
-
-Logikk i firmware:
-- filter aktiveres automatisk hvis heater eller bubbles er ønsket
-- heater holdes kun når filter er aktiv og `current_temp < target_temp`
-- target sendes i hver hold-syklus
-
-## ESP32 lokal webside og lagrede innstillinger
-
-Homey-firmwaren har nå lokal webside på ESP32:
-- `http://<esp-ip>/`
-
-Websiden viser:
-- online/status
-- aktuell temperatur
-- setpunkt
-- filter/heater/bubbles
-- auto-restore
-- Wi-Fi status/IP
-
-Websiden lar deg:
-- styre filter/heater/bubbles
-- sette temperatur
-- lagre Wi-Fi SSID/passord
-
-ESP32 bruker NVS/Preferences til å lagre:
-- Wi-Fi SSID/passord
-- filter/heater ønsket tilstand
-- ønsket temperatur
-- auto-restore aktivert/deaktivert
-- om spaet skal være i drift (`desired_run`)
-
-## Fallback hotspot
-
-Hvis ESP32 ikke får koblet til Wi-Fi innen 2 minutter:
-- den starter fallback hotspot `MSpa-Setup`
+- SSID: `MSpa-Setup`
 - passord: `mspasetup`
-- webside: `http://192.168.4.1/`
 
-Bruk denne siden til å legge inn riktig Wi-Fi.
+Åpne så:
 
-## Fjernkontroll og auto-restore
-
-Firmware leser statusrammer fra spaet (`0x08`):
-- status `0x03` tolkes som at spaet går
-- status `0x00` tolkes som av/idle
-
-Hvis spaet går og senere blir slått av via original fjernkontroll:
-- ESP32 lagrer `desired_run = false`
-- `auto_restore_enabled` blir automatisk slått av
-- spaet blir ikke startet igjen etter strømbrudd
-
-Hvis spaet blir slått på igjen via original fjernkontroll:
-- ESP32 lagrer `desired_run = true`
-- `auto_restore_enabled` blir automatisk aktivert igjen
-
-Det er lagt inn oppstart/restore guard-tid for å unngå at ESP32 mistolker normal reboot/restore som manuell avstenging.
-
-## Teststatus
-
-- Stabil styring er verifisert i direkte bus-test uten original remote tilkoblet.
-- Neste anbefalte verifisering er langtidstest med original remote parallelt tilkoblet for å bekrefte kollisjonshåndtering over tid.
-- Hvis parallell drift gir ustabilitet, bruk dedikert ESP-basert remote-erstatning.
-
-## Lokal simulering uten ESP32
-
-For å teste Homey-appen før maskinvaren er klar, bruk:
-- `tools/simulate_mspa_http.py`
-
-Start simulator:
-
-```bash
-python tools/simulate_mspa_http.py --port 8080
+```text
+http://192.168.4.1/
 ```
 
-I Homey-enhetens innstillinger:
-- `host`: `<IP-til-PC>:8080`
+Der kan du:
 
-Eksempel:
-- host: `192.168.1.123:8080`
+- legge inn Wi-Fi SSID/passord
+- lagre MQTT-server, port og topic
+- se status
+- styre spa-funksjonene direkte
 
-Nyttige test-kall:
+## Praktisk Homey-bruk
 
-```bash
-# status
-curl http://127.0.0.1:8080/api/status
+Det finnes to vanlige måter å bruke denne med Homey Pro på:
 
-# simulér offline/online
-curl -X POST http://127.0.0.1:8080/api/sim/offline
-curl -X POST http://127.0.0.1:8080/api/sim/online
+### 1. HTTP-basert
 
-# sett temperatur i simulator
-curl -X POST "http://127.0.0.1:8080/api/sim/temp?value=34.5"
-```
+Homey Flow eller Homey-app sender lokale `POST`-kall til ESP32:
+
+- slå på filter
+- slå på heater
+- endre temperatur
+- kjøre restore
+
+### 2. MQTT-basert
+
+Homey eller annen lokal automasjon:
+
+- leser status fra MQTT
+- sender kommandoer til `command/...`-topicene
+
+MQTT er ofte den reneste løsningen hvis du vil ha både tilstandsoppdateringer og enkel styring uten å polle HTTP-status hele tiden.
+
+## Hva du bør teste etter installasjon
+
+1. boot:
+   - vises `888`?
+2. webside:
+   - svarer `http://<esp-ip>/`?
+3. HTTP:
+   - virker `/api/status`?
+4. knapper:
+   - styrer de heater/filter/bubbles/temp?
+5. LED:
+   - følger de forventet tilstand?
+6. MQTT:
+   - kobler den til broker?
+   - publiseres status?
+   - virker kommando-topics?
+7. strøm av/på:
+   - restore skjer til lagret ønsket tilstand
+   - bobler kommer ikke tilbake hvis de var av

@@ -158,6 +158,18 @@ ESPHome target should expose:
 - `button` restart desired mode
 - optional `switch` auto_restore_enabled
 
+Implemented direction in this repo:
+
+- `TM1650` display on the custom remote PCB is now the preferred display path
+- verified mapping:
+  - `DIO = GPIO23`
+  - `CLK = GPIO22`
+- PCB buttons are available locally:
+  - `GPIO13`, `32`, `33`, `26`, `25`, `14`, `27`
+- PCB status LEDs are available:
+  - `GPIO21`, `19`, `18`, `5`, `4`
+- display should boost to full brightness briefly after local interaction, then dim when idle
+
 Local restore behavior:
 
 - On ESP32 boot, wait a configurable delay, default 60 seconds.
@@ -168,6 +180,7 @@ Local restore behavior:
   - heater on
 - Do not enable bubbles automatically unless explicitly configured.
 - Do not enable heater if flow/error status indicates unsafe operation.
+- Prefer separating desired persisted state from live observed state so bubbles do not come on accidentally after reboot.
 
 ### Phase 5: Homey Pro firmware
 
@@ -187,6 +200,8 @@ POST /api/target-temperature
 POST /api/restore
 POST /api/auto-restore/on
 POST /api/auto-restore/off
+POST /api/wifi
+POST /api/mqtt
 ```
 
 Requirements:
@@ -196,6 +211,20 @@ Requirements:
 - The token must not be hard-coded in committed source.
 - Store configuration in a local config file or compile-time secret.
 - Include examples for Homey flows using HTTP requests and/or MQTT.
+
+Implemented direction in this repo:
+
+- local web UI is part of the firmware
+- Wi-Fi credentials are configured from the web UI and stored in `Preferences`
+- MQTT broker settings are configured from the web UI and stored in `Preferences`
+- MQTT should publish status and accept simple command topics for:
+  - filter
+  - heater
+  - bubbles
+  - target temperature
+  - auto restore
+  - restore
+- Keep the same TM1650 display, PCB buttons, and status LED behavior aligned with the ESPHome firmware where practical
 
 ## Code style
 
@@ -235,6 +264,12 @@ For ESPHome:
 ```bash
 esphome config firmware/esphome-ha/mspa-mist-ha.yaml
 esphome compile firmware/esphome-ha/mspa-mist-ha.yaml
+```
+
+For the pure Wi-Fi / HTTP / MQTT firmware:
+
+```bash
+pio run -d firmware/homey-http
 ```
 
 If the repository does not yet contain test infrastructure, create minimal tests around the protocol parser first.

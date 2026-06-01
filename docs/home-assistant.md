@@ -1,122 +1,155 @@
 # Home Assistant (ESPHome)
 
-Ferdig første versjon:
+Denne firmwarevarianten er for Home Assistant via ESPHome og er verifisert mot MSpa Mist-logikken i repoet:
+
 - `firmware/esphome-ha/mspa-mist-ha.yaml`
+- `firmware/esphome-ha/mspa_tm1650_display.h`
 
-Innhold:
-- sensor: current temperature (fra `0x06` / 2)
-- number: target temperature
-- switch: heater, filter, bubbles
-- binary_sensor: online
-- text_sensor: raw status frame
-- button: restore desired mode
-- switch: auto_restore_enabled
+For modeller som faktisk har UVC/Ozone finnes også:
+- `firmware/esphome-ha/mspa-uvc-ozone-test.yaml`
 
-Sikker restore:
-- venter default 60 sek etter boot
+## Implementert funksjonalitet
+
+ESPHome-firmwaren har nå:
+
+- temperaturavlesning fra `0x06`
+- target temperature som `number`
+- `switch` for heater, filter og bubbles
+- `binary_sensor` for online og heater-kall
+- `text_sensor` for rå status
+- `button` for restore desired mode
+- `switch` for auto restore
+- TM1650-display på eget remote-PCB
+- PCB-knapper for lokal styring
+- PCB-status-LED-er
+
+### Verifisert PCB-mapping
+
+- display:
+  - `DIO = GPIO23`
+  - `CLK = GPIO22`
+- knapper:
+  - `GPIO13` mode/restore
+  - `GPIO32` heater
+  - `GPIO33` filter
+  - `GPIO26` auto-restore
+  - `GPIO25` bubbles
+  - `GPIO14` temp down
+  - `GPIO27` temp up
+- LED:
+  - `GPIO21` filter aktiv
+  - `GPIO19` heater-funksjon aktiv
+  - `GPIO18` bubbles aktiv
+  - `GPIO5` feil/offline
+  - `GPIO4` aktiv oppvarming
+
+## Displayoppførsel
+
+Displayet bruker den verifiserte `TM1650`-strategien:
+
+- `Wire`-basert styring
+- normal mapping `DIO=GPIO23`, `CLK=GPIO22`
+- boot viser `888`
+- idle dimmes
+- full lysstyrke i 10 sekunder etter knappetrykk
+
+Visning:
+
+- `OFF` når spa ikke er online
+- `Con` når temperatur ennå ikke er kjent
+- temperatur med ett desimalpunkt under normal drift
+
+## Restore-logikk
+
+Denne firmwaren er ment å løse strømbruddscenarioet uten å starte feil funksjoner:
+
+- venter som standard `60` sekunder etter boot
 - krever online-status før restore
-- restore: filter on -> target temperature -> heater on
-- heater holdes av hvis filter er av
-- bubbles restore default av
-- UVC/Ozone er ikke eksponert i Mist-profilen
-
-## Verifisert styringslogikk (MSpa Mist)
-
-Denne firmware-varianten er oppdatert til verifisert hold-logikk:
-- periodisk hold hvert `3000 ms`
-- sender: filter (`0x02`), heater (`0x01`), bubbles (`0x03`), target (`0x04`), heartbeat (`0x16`)
-
-Praktisk logikk:
-- filter holdes aktiv når filter/heater/bubbles er on
-- heater holdes kun aktiv når:
-  - heater er on
-  - filter er aktiv
-  - `current_temp < target_temp`
-- bubbles holdes etter valgt nivå
+- gjenoppretter lagret ønsket tilstand
+- bobler starter ikke automatisk med mindre de faktisk var lagret som på
+- heater aktiveres bare når status ser trygg ut
 
 Viktig:
-- Sett hemmeligheter i `secrets.yaml`: wifi, api key, ota passord, fallback AP-passord.
-- Verifiser spenningsnivå før tilkobling.
+- `desired_*`-verdiene er den lagrede ønskede tilstanden
+- aktuell RX-status brukes som feedback, ikke som ukritisk oppstartskilde
+
+## Installering i ESPHome Builder
+
+Dette er den anbefalte måten når du kjører ESPHome som add-on i Home Assistant.
+
+### 1. Kopier filer
+
+Legg disse filene inn i ESPHome-konfigområdet ditt:
+
+- `mspa-mist-ha.yaml`
+- `mspa_tm1650_display.h`
+
+De bør ligge i samme mappe, fordi YAML-filen bruker:
+
+```yaml
+esphome:
+  includes:
+    - mspa_tm1650_display.h
+```
+
+### 2. Legg inn secrets
+
+Firmwarefilen forventer disse verdiene i `secrets.yaml`:
+
+- `wifi_ssid`
+- `wifi_password`
+- `fallback_ap_password`
+- `api_encryption_key`
+- `ota_password`
+
+### 3. Valider
+
+I ESPHome Builder:
+
+1. åpne noden
+2. lim inn YAML
+3. sørg for at headerfila ligger riktig
+4. trykk `Validate`
+
+Hvis Builder klager på manglende header eller metoder i displayklassen, er det nesten alltid fordi `mspa_tm1650_display.h` i Home Assistant ikke er oppdatert til siste versjon.
+
+### 4. Flash første gang
+
+Første flash bør gjøres via USB/seriell i ESPHome Builder.
+
+Etter første flash kan du bruke OTA.
+
+## Hva du bør teste etter flash
+
+1. ved boot:
+   - vises `888` tydelig?
+2. etter noen sekunder:
+   - dimmes displayet?
+3. trykk en PCB-knapp:
+   - går displayet til full styrke?
+4. heater/filter/bubbles-knapper:
+   - oppdateres både display og HA-entities?
+5. status-LED:
+   - følger de forventet funksjon?
+6. strøm av/på:
+   - restore skjer til lagret ønsket tilstand
+   - bobler starter ikke hvis de var av
 
 ## Dashboard
 
-Ferdig dashboard-YAML:
+Ferdige dashboardfiler finnes i `docs/`:
+
 - `docs/home-assistant-dashboard.yaml`
+- `docs/home-assistant-dashboard-view.yaml`
+- `docs/home-assistant-dashboard-visual-view.yaml`
+- `docs/home-assistant-dashboard-visual-sections-wide.yaml`
 
-Bruk:
-1. Home Assistant -> Settings -> Dashboards -> Add Dashboard.
-2. Velg YAML mode dashboard.
-3. Lim inn innholdet fra `docs/home-assistant-dashboard.yaml`.
+Hvis entity-IDene dine avviker fra standard, må dashboardfilene justeres tilsvarende.
 
-Merk:
-- Entity-IDene i dashboardet er basert på standard navngivning fra ESPHome-filen.
-- Hvis dine entity-IDer avviker, oppdater disse i dashboard-YAML:
-  - `sensor.mspa_current_temperature`
-  - `number.mspa_target_temperature`
-  - `switch.mspa_filter`
-  - `switch.mspa_heater`
-  - `switch.mspa_bubbles`
-  - `binary_sensor.mspa_online`
-  - `switch.mspa_auto_restore_enabled`
-  - `button.mspa_restore_desired_mode`
-- `text_sensor.mspa_raw_status`
+## Videre automasjon i Home Assistant
 
-## Testet oppsett
+Pakke for restore-logikk:
 
-Felt-testene ble kjørt med:
-- MSpa Mist buss
-- ESP32 på UART 9600 8N1
-- statusverifisering mot `0x08`, `0x06`, `0x1A`, `0x12`, `0x18`
-
-Se full testoppsummering i `README.md` og `docs/protocol.md`.
-
-## Automasjon for drift og strømbrudd
-
-Eksempelfil:
 - `home-assistant/packages/mspa_restore.yaml`
 
-Denne automasjonen:
-- gjenstarter spa etter strømbrudd/offline når spaet **skal** være i drift
-- respekterer manuell avskrudd tilstand (HA eller fjernkontroll)
-- respekterer effektbegrensning fra energilogikk (Node-RED)
-
-### Prinsipp
-
-- `input_boolean.mspa_should_run`:
-  - lagrer brukerens driftsintensjon (spa skal være i gang)
-- `input_boolean.mspa_blocked_by_power`:
-  - settes av Node-RED når stor last må kuttes
-- `timer.mspa_restore_guard`:
-  - hindrer at manuell avstenging mistolkes som feiltilstand rett etter restore
-
-### Legg inn i Home Assistant
-
-1. Opprett mappe `packages` hvis den ikke finnes:
-   - `/config/packages/`
-2. Kopier filen:
-   - fra repo: `home-assistant/packages/mspa_restore.yaml`
-   - til HA: `/config/packages/mspa_restore.yaml`
-3. Aktiver packages i `configuration.yaml` (hvis ikke allerede aktivert):
-
-```yaml
-homeassistant:
-  packages: !include_dir_named packages
-```
-
-4. Restart Home Assistant.
-5. Verifiser at disse helperne finnes:
-   - `input_boolean.mspa_should_run`
-   - `input_boolean.mspa_blocked_by_power`
-   - `timer.mspa_restore_guard`
-
-### Node-RED kobling (effektbegrensning)
-
-Når Node-RED kutter store laster:
-- sett `input_boolean.mspa_blocked_by_power` til `on`
-
-Når effektbegrensning oppheves:
-- sett `input_boolean.mspa_blocked_by_power` til `off`
-
-Anbefalt service-kall i Node-RED:
-- `input_boolean.turn_on` / `input_boolean.turn_off`
-- target: `input_boolean.mspa_blocked_by_power`
+Denne er nyttig hvis du vil kombinere lokal ESP32-restore med HA/Node-RED-logikk for effektstyring eller driftspolitikk.

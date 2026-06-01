@@ -6,6 +6,13 @@ Dette prosjektet bygger på praktiske felttester med MSpa Mist og har to firmwar
 - ESPHome (Home Assistant)
 - Lokal HTTP-firmware (Homey Pro)
 
+Begge hovedfirmwarene er nå oppdatert til å bruke verifisert `TM1650`-displaystyring på eget remote-PCB:
+- `DIO = GPIO23`
+- `CLK = GPIO22`
+- PCB-knapper og status-LED-er støttes
+- restore etter strømbrudd skjer fra lagret ønsket tilstand
+- bobler starter ikke automatisk med mindre de faktisk var lagret som på
+
 ## Viktig sikkerhet
 
 - Kun lavspenningsgrensesnitt (kabel til kablet remote).
@@ -25,6 +32,8 @@ Se:
 
 - `docs/` sikkerhet, hardware, protokoll, HA/Homey-notater
 - `firmware/common/` felles protokollkode (C++)
+- `firmware/esphome-ha/` ESPHome for Home Assistant
+- `firmware/homey-http/` ren ESP32-firmware med lokal webside, HTTP API og MQTT
 - `tools/` dekoder/utility-verktøy (Python)
 - `tests/` parser/dekoder-tester
 
@@ -60,13 +69,19 @@ Detaljer: se [docs/protocol.md](docs/protocol.md).
 1. Les sikkerhetsdokumentasjon før tilkobling.
 2. Bruk protokollkartet i `docs/protocol.md` (basert på referanseprosjekter).
 3. Verifiser mot din spa-modell og hold UVC/ozone deaktivert som standard.
-4. Start med `firmware/mspa-lab-sniffer` hvis du vil gjenta/utvide protokolltestene.
-5. For modeller med UVC/Ozone, se testoppsett i `docs/uvc-ozone.md`.
+4. Velg firmware:
+   - Home Assistant: `firmware/esphome-ha/mspa-mist-ha.yaml`
+   - Ren Wi-Fi/HTTP/MQTT: `firmware/homey-http/`
+5. Start med `firmware/mspa-lab-sniffer` hvis du vil gjenta/utvide protokolltestene.
+6. For modeller med UVC/Ozone, se testoppsett i `docs/uvc-ozone.md`.
 
 ## Implementering
 
 - Home Assistant ESPHome firmware:
   - `firmware/esphome-ha/mspa-mist-ha.yaml`
+  - `firmware/esphome-ha/mspa_tm1650_display.h`
+- Home Assistant ESPHome testprofil for UVC/Ozone:
+  - `firmware/esphome-ha/mspa-uvc-ozone-test.yaml`
 - MSpa lab sniffer/debug firmware:
   - `firmware/mspa-lab-sniffer/platformio.ini`
   - `firmware/mspa-lab-sniffer/src/main.cpp`
@@ -76,13 +91,47 @@ Detaljer: se [docs/protocol.md](docs/protocol.md).
   - `firmware/mspa-lab-sniffer-uvc-ozone/src/main.cpp`
 - Home Assistant dashboard (visuell view):
   - `docs/home-assistant-dashboard-visual-sections-wide.yaml`
-- ESPHome UVC/Ozone testprofil (for modeller som faktisk har disse funksjonene):
-  - `firmware/esphome-ha/mspa-uvc-ozone-test.yaml`
 - Homey lokal HTTP firmware:
   - `firmware/homey-http/platformio.ini`
   - `firmware/homey-http/src/main.cpp`
+  - `firmware/homey-http/include/mspa_tm1650_display.h`
 - Homey app:
   - `homey-app/`
+
+## Installering
+
+### Home Assistant / ESPHome
+
+Se full guide i [docs/home-assistant.md](docs/home-assistant.md).
+
+Kortversjon:
+1. Kopier `firmware/esphome-ha/mspa-mist-ha.yaml` inn i ESPHome Builder.
+2. Kopier `firmware/esphome-ha/mspa_tm1650_display.h` til samme ESPHome-konfigmappe.
+3. Legg inn nødvendige `secrets`.
+4. Valider og flash første gang via USB.
+
+### Ren Wi-Fi / HTTP / MQTT firmware
+
+Se full guide i [docs/homey-pro.md](docs/homey-pro.md).
+
+Kortversjon:
+1. Bygg med PlatformIO:
+
+```powershell
+python -m platformio run -d firmware/homey-http
+```
+
+2. Flash til riktig COM-port:
+
+```powershell
+python -m platformio run -d firmware/homey-http -t upload --upload-port COM7
+```
+
+3. Etter oppstart:
+   - hvis Wi-Fi er lagret og virker, åpne `http://<esp-ip>/`
+   - ellers koble til fallback AP `MSpa-Setup` / `mspasetup`
+   - åpne `http://192.168.4.1/`
+4. Konfigurer Wi-Fi og eventuelt MQTT fra webgrensesnittet.
 
 ### Python-verktøy
 
@@ -103,9 +152,30 @@ python -m pytest tests/test_mspa_protocol_vectors.py
 - [x] Protokollgrunnlag fra referanseprosjekter dokumentert
 - [x] Felles parser/generator med checksum opprettet
 - [x] Grunnleggende enhetstester opprettet
-- [x] Homey HTTP firmware med stabil hold-logikk (3s) og heartbeat
-- [x] ESPHome firmware med stabil hold-logikk (3s) og temperaturstyrt heater
+- [x] Homey HTTP firmware med stabil hold-logikk (3s), lokal webside og MQTT
+- [x] ESPHome firmware med stabil hold-logikk (3s), TM1650-display, PCB-knapper og status-LED-er
+- [x] Restore-logikk oppdatert slik at bobler ikke starter automatisk uten lagret ønsket tilstand
 - [ ] Langtidstest med original fjernkontroll permanent parallelt tilkoblet
+
+## Implementert nå
+
+### ESPHome / Home Assistant
+
+- TM1650-display via `Wire` på `GPIO23/22`
+- full lysstyrke i 10 sekunder etter knappetrykk, deretter dimmet
+- PCB-knapper for heater/filter/bubbles/temp opp/ned/restore/auto-restore
+- PCB-status-LED-er for filter/heater/bubbles/heating/error
+- restore fra lagret ønsket tilstand etter oppstartsforsinkelse
+
+### Ren Wi-Fi / HTTP / MQTT firmware
+
+- lokal webside for status og styring
+- Wi-Fi-konfig via webgrensesnitt
+- MQTT-konfig via webgrensesnitt
+- MQTT statuspublisering og kommandoabonnement
+- TM1650-display via `Wire` på `GPIO23/22`
+- PCB-knapper og status-LED-er
+- restore-logikk som samsvarer med ESPHome-sporet
 
 ## Hvordan testene ble utført
 
