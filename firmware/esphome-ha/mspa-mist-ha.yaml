@@ -1,12 +1,19 @@
 esphome:
   name: mspa-mist-ha
   friendly_name: MSpa Mist Controller
+  includes:
+    - mspa_tm1650_display.h
   on_boot:
     priority: -100
     then:
       - lambda: |-
           id(boot_ms) = millis();
           id(restore_pending) = true;
+          id(filter_switch).publish_state(id(desired_filter_val));
+          id(heater_switch).publish_state(id(desired_heater_val));
+          id(bubbles_switch).publish_state(id(desired_bubbles_val) > 0);
+          id(bubble_level_num).publish_state(id(desired_bubbles_val));
+          id(target_temp).publish_state(id(target_temp_val));
 
 esp32:
   board: esp32dev
@@ -43,11 +50,20 @@ uart:
 
 output:
   - platform: gpio
-    id: disp_clk
-    pin: GPIO22
+    id: led_filter_active
+    pin: GPIO21
   - platform: gpio
-    id: disp_dio
-    pin: GPIO23
+    id: led_heater_function
+    pin: GPIO19
+  - platform: gpio
+    id: led_bubbles_active
+    pin: GPIO18
+  - platform: gpio
+    id: led_general_error
+    pin: GPIO5
+  - platform: gpio
+    id: led_heater_heating
+    pin: GPIO4
 
 globals:
   - id: current_temp_val
@@ -64,7 +80,7 @@ globals:
     initial_value: '38'
   - id: bubble_level_val
     type: int
-    restore_value: yes
+    restore_value: no
     initial_value: '0'
   - id: desired_filter_val
     type: bool
@@ -118,6 +134,10 @@ globals:
     type: int
     restore_value: yes
     initial_value: '1'
+  - id: display_last_interaction_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
 
 sensor:
   - platform: template
@@ -155,6 +175,153 @@ binary_sensor:
     id: running_status
     lambda: |-
       return id(bath_status_val) == 0x03;
+  - platform: template
+    name: "MSpa Heater Calling For Heat"
+    id: heater_call_active
+    lambda: |-
+      return id(desired_heater_val) && id(heater_call_for_heat);
+  - platform: template
+    name: "MSpa Error Offline"
+    id: error_or_offline
+    lambda: |-
+      return !id(spa_online);
+  - platform: gpio
+    id: btn_mode_jet
+    name: "MSpa Mode Jet Button"
+    internal: true
+    pin:
+      number: GPIO13
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 25ms
+    on_press:
+      then:
+        - lambda: 'id(display_last_interaction_ms) = millis();'
+        - logger.log: "PCB button: MODE/JET -> restore desired mode"
+        - button.press: restore_button
+  - platform: gpio
+    id: btn_heater
+    name: "MSpa Heater Button"
+    internal: true
+    pin:
+      number: GPIO32
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 25ms
+    on_press:
+      then:
+        - lambda: 'id(display_last_interaction_ms) = millis();'
+        - if:
+            condition:
+              switch.is_on: heater_switch
+            then:
+              - switch.turn_off: heater_switch
+            else:
+              - switch.turn_on: heater_switch
+  - platform: gpio
+    id: btn_filter
+    name: "MSpa Filter Button"
+    internal: true
+    pin:
+      number: GPIO33
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 25ms
+    on_press:
+      then:
+        - lambda: 'id(display_last_interaction_ms) = millis();'
+        - if:
+            condition:
+              switch.is_on: filter_switch
+            then:
+              - switch.turn_off: filter_switch
+            else:
+              - switch.turn_on: filter_switch
+  - platform: gpio
+    id: btn_timer
+    name: "MSpa Timer Button"
+    internal: true
+    pin:
+      number: GPIO26
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 25ms
+    on_press:
+      then:
+        - lambda: 'id(display_last_interaction_ms) = millis();'
+        - if:
+            condition:
+              switch.is_on: auto_restore_enabled
+            then:
+              - switch.turn_off: auto_restore_enabled
+              - logger.log: "PCB button: auto restore OFF"
+            else:
+              - switch.turn_on: auto_restore_enabled
+              - logger.log: "PCB button: auto restore ON"
+  - platform: gpio
+    id: btn_bubbles
+    name: "MSpa Bubbles Button"
+    internal: true
+    pin:
+      number: GPIO25
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 25ms
+    on_press:
+      then:
+        - lambda: 'id(display_last_interaction_ms) = millis();'
+        - if:
+            condition:
+              switch.is_on: bubbles_switch
+            then:
+              - switch.turn_off: bubbles_switch
+            else:
+              - switch.turn_on: bubbles_switch
+  - platform: gpio
+    id: btn_temp_down
+    name: "MSpa Temp Down Button"
+    internal: true
+    pin:
+      number: GPIO14
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 25ms
+    on_press:
+      then:
+        - lambda: 'id(display_last_interaction_ms) = millis();'
+        - lambda: |-
+            int next = id(target_temp_val) - 1;
+            if (next < 15) next = 15;
+            id(target_temp_val) = next;
+        - number.set:
+            id: target_temp
+            value: !lambda 'return id(target_temp_val);'
+  - platform: gpio
+    id: btn_temp_up
+    name: "MSpa Temp Up Button"
+    internal: true
+    pin:
+      number: GPIO27
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 25ms
+    on_press:
+      then:
+        - lambda: 'id(display_last_interaction_ms) = millis();'
+        - lambda: |-
+            int next = id(target_temp_val) + 1;
+            if (next > 40) next = 40;
+            id(target_temp_val) = next;
+        - number.set:
+            id: target_temp
+            value: !lambda 'return id(target_temp_val);'
 
 text_sensor:
   - platform: template
@@ -250,19 +417,19 @@ number:
     max_value: 3
     step: 1
     mode: box
-    restore_value: true
+    restore_value: false
     optimistic: true
     initial_value: 0
     on_value:
       then:
         - lambda: |-
+            id(desired_bubbles_val) = (int)x;
             id(bubble_level_val) = (int)x;
-            id(desired_bubbles_val) = id(bubble_level_val);
             id(bubbles_switch).publish_state(id(desired_bubbles_val) > 0);
         - script.execute:
             id: send_frame
             code: 0x03
-            value: !lambda 'return id(bubble_level_val);'
+            value: !lambda 'return id(desired_bubbles_val);'
 
 switch:
   - platform: template
@@ -377,20 +544,38 @@ script:
               - switch.is_on: auto_restore_enabled
               - binary_sensor.is_on: online_status
           then:
-            - switch.turn_on: filter_switch
-            - delay: 800ms
-            - number.set:
-                id: target_temp
-                value: !lambda 'return id(target_temp_val);'
-            - delay: 800ms
             - if:
                 condition:
                   lambda: |-
-                    return id(bath_status_val) == 0x03 || id(bath_status_val) == 0x00;
+                    return id(desired_filter_val) || id(desired_heater_val) || id(desired_bubbles_val) > 0;
                 then:
-                  - switch.turn_on: heater_switch
+                  - switch.turn_on: filter_switch
                 else:
-                  - logger.log: "Restore skipped heater: unsafe/unknown status"
+                  - switch.turn_off: filter_switch
+            - delay: 600ms
+            - number.set:
+                id: target_temp
+                value: !lambda 'return id(target_temp_val);'
+            - delay: 600ms
+            - if:
+                condition:
+                  lambda: 'return id(desired_heater_val);'
+                then:
+                  - if:
+                      condition:
+                        lambda: |-
+                          return id(bath_status_val) == 0x03 || id(bath_status_val) == 0x00;
+                      then:
+                        - switch.turn_on: heater_switch
+                      else:
+                        - logger.log: "Restore skipped heater: unsafe/unknown status"
+                else:
+                  - switch.turn_off: heater_switch
+            - delay: 600ms
+            - script.execute:
+                id: send_frame
+                code: 0x03
+                value: !lambda 'return id(desired_bubbles_val);'
 
 interval:
   - interval: 200ms
@@ -447,6 +632,13 @@ interval:
   - interval: 3s
     then:
       - lambda: |-
+          if (id(restore_pending)) {
+            const uint8_t frame[4] = {0xA5, 0x16, 0x00, static_cast<uint8_t>((0xA5 + 0x16) & 0xFF)};
+            id(uart_bus).write_array(frame, 4);
+            ESP_LOGD("mspa_tx", "TX hold: restore pending, heartbeat only");
+            return;
+          }
+
           // Periodic hold: keep desired state alive on the bus.
           // IMPORTANT: this uses desired_* values from HA commands, not RX-derived state.
           const int bubbles = id(desired_bubbles_val) > 0 ? id(desired_bubbles_val) : 0;
@@ -500,66 +692,66 @@ interval:
   - interval: 1s
     then:
       - lambda: |-
-          // HTM1650/TM1650 bitbang display update on GPIO22/23.
+          static MspaTm1650Display display;
           static bool init_done = false;
-          static const uint8_t addr_digit[4] = {0x68, 0x6A, 0x6C, 0x6E};
-          static const uint8_t addr_ctrl[4]  = {0x48, 0x4A, 0x4C, 0x4E};
-          static const uint8_t seg[10] = {0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x6F};
-
-          auto dly = []() { delayMicroseconds(8); };
-          auto dio_out = []() { pinMode(23, OUTPUT); };
-          auto dio_in = []() { pinMode(23, INPUT_PULLUP); };
-          auto clk_h = []() { id(disp_clk).turn_on(); };
-          auto clk_l = []() { id(disp_clk).turn_off(); };
-          auto dio_h = []() { id(disp_dio).turn_on(); };
-          auto dio_l = []() { id(disp_dio).turn_off(); };
-
-          auto start = [&]() {
-            dio_out(); dio_h(); clk_h(); dly(); dio_l(); dly(); clk_l();
-          };
-          auto stop = [&]() {
-            dio_out(); clk_l(); dio_l(); dly(); clk_h(); dly(); dio_h();
-          };
-          auto write_byte = [&](uint8_t b) {
-            dio_out();
-            for (int i = 0; i < 8; i++) {
-              clk_l();
-              if (b & 0x01) dio_h(); else dio_l();
-              dly();
-              clk_h();
-              dly();
-              b >>= 1;
-            }
-            clk_l();
-            dio_in(); // ACK ignored
-            dly();
-            clk_h();
-            dly();
-            clk_l();
-          };
-          auto write_reg = [&](uint8_t a, uint8_t v) {
-            start();
-            write_byte(a);
-            write_byte(v);
-            stop();
-          };
-
+          const bool boost = (millis() - id(display_last_interaction_ms)) < 10000;
           if (!init_done) {
-            for (int i = 0; i < 4; i++) write_reg(addr_ctrl[i], 0x11);
-            for (int i = 0; i < 4; i++) write_reg(addr_digit[i], 0x00);
+            display.begin(23, 22);
+            display.setBrightness(7);
+            display.displayText3("888");
+            id(display_last_interaction_ms) = millis();
             init_done = true;
+            return;
+          }
+
+          display.setBrightness(boost ? 7 : 1);
+
+          if (!id(spa_online)) {
+            display.displayText3("OFF");
+            return;
+          }
+
+          if (!id(have_current_temp)) {
+            display.displayText3("Con");
+            return;
           }
 
           int t = (int) roundf(id(current_temp_val) * 10.0f);
           if (t < 0) t = 0;
           if (t > 999) t = 999;
-          int h = (t / 100) % 10;
-          int d = (t / 10) % 10;
-          int o = t % 10;
-          uint8_t d0 = (t >= 100) ? seg[h] : 0x00;
-          uint8_t d1 = ((t >= 10) ? seg[d] : 0x00) | 0x80; // decimal point
-          uint8_t d2 = seg[o];
-          write_reg(addr_digit[0], d0);
-          write_reg(addr_digit[1], d1);
-          write_reg(addr_digit[2], d2);
-          write_reg(addr_digit[3], 0x00);
+          display.displayNumber3(t, true);
+      - if:
+          condition:
+            lambda: 'return id(desired_filter_val);'
+          then:
+            - output.turn_on: led_filter_active
+          else:
+            - output.turn_off: led_filter_active
+      - if:
+          condition:
+            lambda: 'return id(desired_heater_val);'
+          then:
+            - output.turn_on: led_heater_function
+          else:
+            - output.turn_off: led_heater_function
+      - if:
+          condition:
+            lambda: 'return id(desired_bubbles_val) > 0;'
+          then:
+            - output.turn_on: led_bubbles_active
+          else:
+            - output.turn_off: led_bubbles_active
+      - if:
+          condition:
+            lambda: 'return id(desired_heater_val) && id(heater_call_for_heat);'
+          then:
+            - output.turn_on: led_heater_heating
+          else:
+            - output.turn_off: led_heater_heating
+      - if:
+          condition:
+            lambda: 'return !id(spa_online);'
+          then:
+            - output.turn_on: led_general_error
+          else:
+            - output.turn_off: led_general_error
