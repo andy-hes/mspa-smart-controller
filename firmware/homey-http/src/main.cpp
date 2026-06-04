@@ -140,6 +140,12 @@ void touchDisplay(uint32_t hold_ms = DISPLAY_FORCE_MS, int forced_value = -1) {
   }
 }
 
+void showTargetTempForDisplay(uint32_t hold_ms = DISPLAY_BOOST_MS) {
+  state.display_last_interaction_ms = millis();
+  state.forced_display_value = state.target_temp;
+  state.forced_display_until_ms = millis() + hold_ms;
+}
+
 void ensureSafeDesiredState() {
   if (!state.desired_filter_on) {
     state.desired_heater_on = false;
@@ -565,7 +571,8 @@ void setupPins() {
 }
 
 void handleButtonPress(const char* name, int pin) {
-  touchDisplay(DISPLAY_FORCE_MS, pin);
+  (void)pin;
+  touchDisplay();
 
   if (strcmp(name, "MODE_JET") == 0) {
     handleRestore();
@@ -580,8 +587,10 @@ void handleButtonPress(const char* name, int pin) {
     setDesiredBubbles(state.desired_bubbles_level > 0 ? 0 : 1);
   } else if (strcmp(name, "TEMP_DOWN") == 0) {
     if (state.target_temp > 15) setTargetTemperature(state.target_temp - 1);
+    showTargetTempForDisplay();
   } else if (strcmp(name, "TEMP_UP") == 0) {
     if (state.target_temp < 40) setTargetTemperature(state.target_temp + 1);
+    showTargetTempForDisplay();
   }
 
   mqttStatusDirty = true;
