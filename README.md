@@ -173,6 +173,7 @@ python -m pytest tests/test_mspa_protocol_vectors.py
 - Wi-Fi-konfig via webgrensesnitt
 - MQTT-konfig via webgrensesnitt
 - MQTT statuspublisering og kommandoabonnement
+- valgfri støtte for ozone/UVC i webgrensesnitt, HTTP API og MQTT
 - TM1650-display via `Wire` på `GPIO23/22`
 - PCB-knapper og status-LED-er
 - restore-logikk som samsvarer med ESPHome-sporet

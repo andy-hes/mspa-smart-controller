@@ -217,10 +217,13 @@ Implemented direction in this repo:
 - local web UI is part of the firmware
 - Wi-Fi credentials are configured from the web UI and stored in `Preferences`
 - MQTT broker settings are configured from the web UI and stored in `Preferences`
+- optional ozone/UVC support can be enabled from the web UI for models that have those features
 - MQTT should publish status and accept simple command topics for:
   - filter
   - heater
   - bubbles
+  - ozone
+  - uvc
   - target temperature
   - auto restore
   - restore

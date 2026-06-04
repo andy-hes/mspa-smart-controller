@@ -80,10 +80,16 @@ struct SpaState {
   bool desired_heater_on = true;
   bool auto_restore_enabled = true;
   uint8_t desired_bubbles_level = 0;
+  bool supports_ozone = false;
+  bool supports_uvc = false;
+  bool desired_ozone_on = false;
+  bool desired_uvc_on = false;
   uint8_t target_temp = 38;
   float current_temp_c = 0.0f;
   bool have_current_temp = false;
   uint8_t bath_status = 0;
+  uint8_t status_0e = 0;
+  uint8_t status_15 = 0;
   bool online = false;
   bool ap_mode = false;
   uint32_t last_rx_ms = 0;
@@ -130,6 +136,10 @@ uint8_t checksum(uint8_t cmd, uint8_t value) {
 
 bool anyDesiredActivity() {
   return state.desired_filter_on || state.desired_heater_on || state.desired_bubbles_level > 0;
+}
+
+bool anyDesiredOptionalActivity() {
+  return (state.supports_ozone && state.desired_ozone_on) || (state.supports_uvc && state.desired_uvc_on);
 }
 
 void touchDisplay(uint32_t hold_ms = DISPLAY_FORCE_MS, int forced_value = -1) {
@@ -184,6 +194,10 @@ void saveSpaSettings() {
   prefs.putBool("heater", state.desired_heater_on);
   prefs.putBool("auto", state.auto_restore_enabled);
   prefs.putUChar("bubbles", state.desired_bubbles_level);
+  prefs.putBool("sup_oz", state.supports_ozone);
+  prefs.putBool("sup_uvc", state.supports_uvc);
+  prefs.putBool("ozone", state.desired_ozone_on);
+  prefs.putBool("uvc", state.desired_uvc_on);
   prefs.putUChar("target", state.target_temp);
   prefs.putUChar("mult", state.temp_multiplier);
   prefs.end();
@@ -196,6 +210,10 @@ void loadSpaSettings() {
   state.desired_heater_on = prefs.getBool("heater", true);
   state.auto_restore_enabled = prefs.getBool("auto", true);
   state.desired_bubbles_level = prefs.getUChar("bubbles", 0);
+  state.supports_ozone = prefs.getBool("sup_oz", false);
+  state.supports_uvc = prefs.getBool("sup_uvc", false);
+  state.desired_ozone_on = prefs.getBool("ozone", false);
+  state.desired_uvc_on = prefs.getBool("uvc", false);
   state.target_temp = prefs.getUChar("target", 38);
   state.temp_multiplier = prefs.getUChar("mult", 1);
   prefs.end();
@@ -339,6 +357,18 @@ void setDesiredBubbles(uint8_t level) {
   saveSpaSettings();
 }
 
+void setDesiredOzone(bool enabled) {
+  if (!state.supports_ozone) return;
+  state.desired_ozone_on = enabled;
+  saveSpaSettings();
+}
+
+void setDesiredUvc(bool enabled) {
+  if (!state.supports_uvc) return;
+  state.desired_uvc_on = enabled;
+  saveSpaSettings();
+}
+
 void setTargetTemperature(uint8_t temp) {
   if (temp < 15) temp = 15;
   if (temp > 40) temp = 40;
@@ -357,8 +387,14 @@ String jsonStringStatus() {
   doc["bubbles_level"] = state.desired_bubbles_level;
   doc["auto_restore_enabled"] = state.auto_restore_enabled;
   doc["bath_status"] = state.bath_status;
+  doc["status_0e"] = state.status_0e;
+  doc["status_15"] = state.status_15;
   doc["heater_call_for_heat"] = state.heater_call_for_heat;
   doc["restore_pending"] = state.restore_pending;
+  doc["supports_ozone"] = state.supports_ozone;
+  doc["supports_uvc"] = state.supports_uvc;
+  doc["ozone_on"] = state.desired_ozone_on;
+  doc["uvc_on"] = state.desired_uvc_on;
   doc["uptime_s"] = millis() / 1000;
   doc["wifi_connected"] = WiFi.status() == WL_CONNECTED;
   doc["ap_mode"] = state.ap_mode;
@@ -408,6 +444,12 @@ String htmlPage() {
   html += "<button onclick=\"post('/api/filter/on')\">Filter on</button><button onclick=\"post('/api/filter/off')\">Filter off</button>";
   html += "<button onclick=\"post('/api/heater/on')\">Heater on</button><button onclick=\"post('/api/heater/off')\">Heater off</button>";
   html += "<button onclick=\"post('/api/bubbles/on')\">Bubbles on</button><button onclick=\"post('/api/bubbles/off')\">Bubbles off</button>";
+  if (state.supports_ozone) {
+    html += "<button onclick=\"post('/api/ozone/on')\">Ozone on</button><button onclick=\"post('/api/ozone/off')\">Ozone off</button>";
+  }
+  if (state.supports_uvc) {
+    html += "<button onclick=\"post('/api/uvc/on')\">UVC on</button><button onclick=\"post('/api/uvc/off')\">UVC off</button>";
+  }
   html += "<button onclick=\"post('/api/restore')\">Restore</button>";
   html += "<button onclick=\"post('/api/auto-restore/on')\">Auto restore on</button><button onclick=\"post('/api/auto-restore/off')\">Auto restore off</button></div>";
   html += "<div class='card'><h2>Setpoint</h2><form method='post' action='/api/target-temperature'>";
@@ -429,6 +471,11 @@ String htmlPage() {
   html += "<input name='base_topic' placeholder='mspa/controller' value='" + baseTopic() + "'>";
   html += "<div class='small'>Commands under " + baseTopic() + "/command/... and status published under " + baseTopic() + "/status</div>";
   html += "<button>Save MQTT</button></form></div>";
+  html += "<div class='card'><h2>Optional Features</h2><form method='post' action='/api/features'>";
+  html += "<label><input type='checkbox' name='supports_ozone' value='1'" + htmlChecked(state.supports_ozone) + "> Enable ozone control (0x0E)</label>";
+  html += "<label><input type='checkbox' name='supports_uvc' value='1'" + htmlChecked(state.supports_uvc) + "> Enable UVC control (0x15)</label>";
+  html += "<div class='small'>Disabled by default for MSpa Mist. Enable only on models verified to support these commands.</div>";
+  html += "<button>Save feature support</button></form></div>";
   html += "<script>async function post(u){await fetch(u,{method:'POST'});location.reload()}</script>";
   html += "</main></body></html>";
   return html;
@@ -450,6 +497,8 @@ void publishMqttStatus() {
   mqttPublishRetained(mqttTopic("state/filter"), state.desired_filter_on ? "on" : "off");
   mqttPublishRetained(mqttTopic("state/heater"), state.desired_heater_on ? "on" : "off");
   mqttPublishRetained(mqttTopic("state/bubbles_level"), String(state.desired_bubbles_level));
+  mqttPublishRetained(mqttTopic("state/ozone"), state.desired_ozone_on ? "on" : "off");
+  mqttPublishRetained(mqttTopic("state/uvc"), state.desired_uvc_on ? "on" : "off");
   mqttPublishRetained(mqttTopic("state/target_temperature_c"), String(state.target_temp));
   mqttPublishRetained(mqttTopic("state/current_temperature_c"), String(state.current_temp_c, 1));
   mqttPublishRetained(mqttTopic("state/online"), state.online ? "true" : "false");
@@ -499,6 +548,12 @@ void mqttCallback(char* topic_cstr, byte* payload_bytes, unsigned int length) {
     const int value = payload.toInt();
     if (value < 15 || value > 40) return;
     setTargetTemperature(static_cast<uint8_t>(value));
+  } else if (command == "ozone/set") {
+    if (!parseBoolPayload(payload, &bool_value)) return;
+    setDesiredOzone(bool_value);
+  } else if (command == "uvc/set") {
+    if (!parseBoolPayload(payload, &bool_value)) return;
+    setDesiredUvc(bool_value);
   } else if (command == "auto_restore/set") {
     if (!parseBoolPayload(payload, &bool_value)) return;
     state.auto_restore_enabled = bool_value;
@@ -647,6 +702,26 @@ void setupRoutes() {
     setDesiredBubbles(0);
     jsonStatus(req);
   });
+  server.on("/api/ozone/on", HTTP_POST, [](AsyncWebServerRequest* req) {
+    if (!state.supports_ozone) return jsonError(req, 400, "ozone support disabled");
+    setDesiredOzone(true);
+    jsonStatus(req);
+  });
+  server.on("/api/ozone/off", HTTP_POST, [](AsyncWebServerRequest* req) {
+    if (!state.supports_ozone) return jsonError(req, 400, "ozone support disabled");
+    setDesiredOzone(false);
+    jsonStatus(req);
+  });
+  server.on("/api/uvc/on", HTTP_POST, [](AsyncWebServerRequest* req) {
+    if (!state.supports_uvc) return jsonError(req, 400, "uvc support disabled");
+    setDesiredUvc(true);
+    jsonStatus(req);
+  });
+  server.on("/api/uvc/off", HTTP_POST, [](AsyncWebServerRequest* req) {
+    if (!state.supports_uvc) return jsonError(req, 400, "uvc support disabled");
+    setDesiredUvc(false);
+    jsonStatus(req);
+  });
 
   server.on("/api/target-temperature", HTTP_POST, [](AsyncWebServerRequest* req) {
     if (!req->hasParam("value", true)) return jsonError(req, 400, "missing value");
@@ -697,6 +772,14 @@ void setupRoutes() {
     configureMqttClient();
     req->send(200, "text/plain", "MQTT settings saved.");
   });
+  server.on("/api/features", HTTP_POST, [](AsyncWebServerRequest* req) {
+    state.supports_ozone = req->hasParam("supports_ozone", true);
+    state.supports_uvc = req->hasParam("supports_uvc", true);
+    if (!state.supports_ozone) state.desired_ozone_on = false;
+    if (!state.supports_uvc) state.desired_uvc_on = false;
+    saveSpaSettings();
+    req->send(200, "text/plain", "Feature support saved.");
+  });
 
   server.onNotFound([](AsyncWebServerRequest* req) {
     if (state.ap_mode) {
@@ -715,14 +798,16 @@ void handleBathStatus(uint8_t value) {
     return;
   }
 
-  if (previous == 0x03 && value == 0x00 && anyDesiredActivity()) {
+  if (previous == 0x03 && value == 0x00 && (anyDesiredActivity() || anyDesiredOptionalActivity())) {
     Serial.println("Remote/off status detected. Clearing desired active state.");
     state.desired_filter_on = false;
     state.desired_heater_on = false;
     state.desired_bubbles_level = 0;
+    state.desired_ozone_on = false;
+    state.desired_uvc_on = false;
     state.auto_restore_enabled = false;
     saveSpaSettings();
-  } else if (previous == 0x00 && value == 0x03 && !anyDesiredActivity()) {
+  } else if (previous == 0x00 && value == 0x03 && !anyDesiredActivity() && !anyDesiredOptionalActivity()) {
     Serial.println("Remote/on status detected. Re-enabling default desired state.");
     state.desired_filter_on = true;
     state.desired_heater_on = true;
@@ -756,6 +841,10 @@ void readFrames() {
             state.have_current_temp = true;
           } else if (cmd == 0x08) {
             handleBathStatus(value);
+          } else if (cmd == 0x0E) {
+            state.status_0e = value;
+          } else if (cmd == 0x15) {
+            state.status_15 = value;
           }
           mqttStatusDirty = true;
         }
@@ -783,11 +872,15 @@ void writeControlFrames() {
   const uint8_t filter_val = filter_wanted ? 0x01 : 0x00;
   const uint8_t heater_val = (state.desired_heater_on && filter_wanted && state.heater_call_for_heat) ? 0x01 : 0x00;
   const uint8_t bubble_val = state.desired_bubbles_level;
+  const uint8_t ozone_val = (state.supports_ozone && state.desired_ozone_on) ? 0x01 : 0x00;
+  const uint8_t uvc_val = (state.supports_uvc && state.desired_uvc_on) ? 0x01 : 0x00;
 
   sendFrame(0x02, filter_val);
   sendFrame(0x01, heater_val);
   sendFrame(0x03, bubble_val);
   sendFrame(0x04, static_cast<uint8_t>(state.target_temp * state.temp_multiplier));
+  if (state.supports_ozone) sendFrame(0x0E, ozone_val);
+  if (state.supports_uvc) sendFrame(0x15, uvc_val);
   sendFrame(0x16, 0x00);
 }
 

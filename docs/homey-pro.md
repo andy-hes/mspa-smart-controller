@@ -16,6 +16,7 @@ Wi-Fi-firmwaren har nå:
 - lokal HTTP API for status og styring
 - MQTT-klient
 - MQTT-konfigurasjon via webgrensesnitt
+- valgfri ozone/UVC-støtte
 - TM1650-display på eget remote-PCB
 - PCB-knapper for lokal styring
 - PCB-status-LED-er
@@ -71,12 +72,17 @@ Støttede endepunkt:
 - `POST /api/heater/off`
 - `POST /api/bubbles/on`
 - `POST /api/bubbles/off`
+- `POST /api/ozone/on`
+- `POST /api/ozone/off`
+- `POST /api/uvc/on`
+- `POST /api/uvc/off`
 - `POST /api/target-temperature`
 - `POST /api/restore`
 - `POST /api/auto-restore/on`
 - `POST /api/auto-restore/off`
 - `POST /api/wifi`
 - `POST /api/mqtt`
+- `POST /api/features`
 
 `/api/status` returnerer JSON med blant annet:
 
@@ -86,8 +92,33 @@ Støttede endepunkt:
 - filter/heater/bubbles
 - auto restore
 - bath status
+- optional status `0x0E` og `0x15`
 - Wi-Fi-status
 - MQTT-status
+
+## Ozone / UVC
+
+Stotte for ozone og UVC er lagt inn for modeller som faktisk har disse funksjonene, men er fortsatt av som standard for MSpa Mist.
+
+Brukte kommandorammer:
+
+- `0x0E` = ozone on/off
+- `0x15` = UVC on/off
+
+Aktivering skjer fra webgrensesnittet under `Optional Features`.
+
+Når støtte er aktivert:
+
+- webgrensesnittet viser knapper for ozone og/eller UVC
+- HTTP API-et godtar `POST /api/ozone/on|off` og `POST /api/uvc/on|off`
+- MQTT publiserer og abonnerer også på disse funksjonene
+
+Når støtte ikke er aktivert:
+
+- firmwaren sender ikke `0x0E` eller `0x15`
+- API-kall til disse endepunktene returnerer feil
+
+Dette er bevisst, slik at Mist-oppsett ikke skal få eksperimentelle funksjoner aktivert ved en feil.
 
 ## MQTT
 
@@ -111,6 +142,8 @@ Ut fra `base_topic`, for eksempel `mspa/controller`:
 - `mspa/controller/state/filter`
 - `mspa/controller/state/heater`
 - `mspa/controller/state/bubbles_level`
+- `mspa/controller/state/ozone`
+- `mspa/controller/state/uvc`
 - `mspa/controller/state/target_temperature_c`
 - `mspa/controller/state/current_temperature_c`
 - `mspa/controller/state/online`
@@ -121,6 +154,8 @@ Ut fra `base_topic`, for eksempel `mspa/controller`:
 - `mspa/controller/command/filter/set`
 - `mspa/controller/command/heater/set`
 - `mspa/controller/command/bubbles/set`
+- `mspa/controller/command/ozone/set`
+- `mspa/controller/command/uvc/set`
 - `mspa/controller/command/target_temperature/set`
 - `mspa/controller/command/auto_restore/set`
 - `mspa/controller/command/restore`
@@ -130,6 +165,8 @@ Payload:
 - boolske kommandoer godtar `on/off`, `true/false`, `1/0`, `yes/no`
 - `bubbles/set` forventer `0..3`
 - `target_temperature/set` forventer `15..40`
+
+For `ozone/set` og `uvc/set` brukes boolsk payload, for eksempel `on` eller `off`.
 
 ## Restore-logikk
 
@@ -200,6 +237,7 @@ Der kan du:
 
 - legge inn Wi-Fi SSID/passord
 - lagre MQTT-server, port og topic
+- aktivere støtte for ozone/UVC hvis modellen din faktisk har det
 - se status
 - styre spa-funksjonene direkte
 
@@ -237,10 +275,12 @@ MQTT er ofte den reneste løsningen hvis du vil ha både tilstandsoppdateringer 
    - styrer de heater/filter/bubbles/temp?
 5. LED:
    - følger de forventet tilstand?
-6. MQTT:
+6. optional features:
+   - hvis aktivert, virker ozone/UVC fra web?
+7. MQTT:
    - kobler den til broker?
    - publiseres status?
    - virker kommando-topics?
-7. strøm av/på:
+8. strøm av/på:
    - restore skjer til lagret ønsket tilstand
    - bobler kommer ikke tilbake hvis de var av
