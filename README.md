@@ -6,6 +6,12 @@ Dette prosjektet bygger på praktiske felttester med MSpa Mist og har to firmwar
 - ESPHome (Home Assistant)
 - Lokal HTTP-firmware (Homey Pro)
 
+## Bilder
+
+![MSpa controller build](IMG_5876.jpeg)
+
+![MSpa controller in enclosure](IMG_5877.jpeg)
+
 Begge hovedfirmwarene er nå oppdatert til å bruke verifisert `TM1650`-displaystyring på eget remote-PCB:
 - `DIO = GPIO23`
 - `CLK = GPIO22`
