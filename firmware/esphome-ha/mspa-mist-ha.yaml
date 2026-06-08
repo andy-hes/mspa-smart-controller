@@ -138,6 +138,14 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  - id: display_forced_value
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: display_forced_until_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
 
 sensor:
   - platform: template
@@ -299,6 +307,8 @@ binary_sensor:
             int next = id(target_temp_val) - 1;
             if (next < 15) next = 15;
             id(target_temp_val) = next;
+            id(display_forced_value) = id(target_temp_val);
+            id(display_forced_until_ms) = millis() + 10000;
         - number.set:
             id: target_temp
             value: !lambda 'return id(target_temp_val);'
@@ -319,6 +329,8 @@ binary_sensor:
             int next = id(target_temp_val) + 1;
             if (next > 40) next = 40;
             id(target_temp_val) = next;
+            id(display_forced_value) = id(target_temp_val);
+            id(display_forced_until_ms) = millis() + 10000;
         - number.set:
             id: target_temp
             value: !lambda 'return id(target_temp_val);'
@@ -705,6 +717,14 @@ interval:
           }
 
           display.setBrightness(boost ? 7 : 1);
+
+          if (millis() < id(display_forced_until_ms)) {
+            int shown = id(display_forced_value);
+            if (shown < 0) shown = 0;
+            if (shown > 999) shown = 999;
+            display.displayNumber3(shown, false);
+            return;
+          }
 
           if (!id(spa_online)) {
             display.displayText3("OFF");

@@ -52,6 +52,7 @@ Displayet bruker den verifiserte `TM1650`-strategien:
 - boot viser `888`
 - idle dimmes
 - full lysstyrke i 10 sekunder etter knappetrykk
+- `temp + / -` viser valgt temperatur i 10 sekunder før displayet går tilbake til målt temperatur
 
 Visning:
 
@@ -127,11 +128,13 @@ Etter første flash kan du bruke OTA.
    - dimmes displayet?
 3. trykk en PCB-knapp:
    - går displayet til full styrke?
-4. heater/filter/bubbles-knapper:
+4. trykk `temp +` eller `temp -`:
+   - vises valgt temperatur i 10 sekunder?
+5. heater/filter/bubbles-knapper:
    - oppdateres både display og HA-entities?
-5. status-LED:
+6. status-LED:
    - følger de forventet funksjon?
-6. strøm av/på:
+7. strøm av/på:
    - restore skjer til lagret ønsket tilstand
    - bobler starter ikke hvis de var av
 

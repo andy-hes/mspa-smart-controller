@@ -163,6 +163,7 @@ python -m pytest tests/test_mspa_protocol_vectors.py
 
 - TM1650-display via `Wire` på `GPIO23/22`
 - full lysstyrke i 10 sekunder etter knappetrykk, deretter dimmet
+- `temp + / -` viser valgt temperatur i 10 sekunder
 - PCB-knapper for heater/filter/bubbles/temp opp/ned/restore/auto-restore
 - PCB-status-LED-er for filter/heater/bubbles/heating/error
 - restore fra lagret ønsket tilstand etter oppstartsforsinkelse
@@ -175,6 +176,7 @@ python -m pytest tests/test_mspa_protocol_vectors.py
 - MQTT statuspublisering og kommandoabonnement
 - valgfri støtte for ozone/UVC i webgrensesnitt, HTTP API og MQTT
 - TM1650-display via `Wire` på `GPIO23/22`
+- samme displayopplevelse som ESPHome for temperaturvisning og `temp + / -`
 - PCB-knapper og status-LED-er
 - restore-logikk som samsvarer med ESPHome-sporet
 
