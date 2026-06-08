@@ -11,11 +11,13 @@ The main goal is to solve the power-loss problem: after mains power is restored,
 - This project interfaces with a spa/bath product used around water. Treat this as safety-critical.
 - Never suggest or implement modifications on mains-voltage circuits unless explicitly documented and isolated.
 - The preferred integration point is the low-voltage wired remote cable only.
+- Do not modify the spa mainboard.
+- Reuse the existing controller housing, seals, and cable where practical.
 - Start with passive sniffing before enabling command injection.
 - Assume ESP32 GPIO is **not 5 V tolerant**.
-- Always require level shifting, opto-isolation, or verified 3.3 V UART before connecting ESP32 GPIO to the MSpa remote lines.
-- Keep original product safety features intact.
-- Do not bypass thermal protection, flow protection, GFCI/RCD protection, pump protection, or error states.
+- Use 3.3 V GPIO toward the spa and a voltage divider on the RX line from the spa.
+- Keep original product behavior intact at the low-voltage interface boundary.
+- If the spa loses communication with the controller, assume it shuts all functions off.
 - On boot, never blindly enable heater before confirming spa status if status decoding is available.
 - Heater should normally only be enabled together with filter/pump when the spa accepts that mode.
 - Provide clear warnings in documentation before hardware connection steps.

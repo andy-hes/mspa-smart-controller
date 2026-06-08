@@ -22,17 +22,33 @@ Begge hovedfirmwarene er nå oppdatert til å bruke verifisert `TM1650`-displays
 ## Viktig sikkerhet
 
 - Kun lavspenningsgrensesnitt (kabel til kablet remote).
-- Ingen forslag om inngrep på nettspenning.
-- ESP32 GPIO er ikke 5 V-tolerant: bruk nivåtilpasning eller galvanisk isolasjon.
-- ESP32 GPIO er ikke 5 V-tolerant. Bruk alltid nivåbeskyttelse på RX-linjen fra spa.
-- Ingen bypass av spaets sikkerhetsfunksjoner (flow/termisk/beskyttelser).
+- Ingen inngrep på boblebadets hovedkort.
+- Eksisterende kontrollerhus, pakninger og kabel benyttes.
+- ESP32 kjører 3.3 V GPIO mot boblebadet.
+- RX-linjen fra spa beskyttes med spenningsdeler mot ESP32.
 - Ingen inngrep på nettspenningsside.
+- Hvis spa mister kommunikasjon med kontrolleren, slår det av alle funksjoner.
 
 Se:
 - [docs/safety.md](docs/safety.md)
 - [docs/hardware.md](docs/hardware.md)
 - [docs/protocol.md](docs/protocol.md)
 - [docs/uvc-ozone.md](docs/uvc-ozone.md)
+
+## License
+
+This repository is distributed as **source-available** software, not OSI Open Source.
+
+- Non-commercial use: [LICENSE.md](LICENSE.md)
+- Commercial licensing: [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)
+- Attribution guidance: [ATTRIBUTION.md](ATTRIBUTION.md)
+- Third-party licenses and notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+In short:
+
+- personal, hobby, and educational use is allowed under the non-commercial license
+- commercial or professional use requires a separate written commercial license
+- third-party dependencies remain under their own licenses
 
 ## Prosjektstruktur
 
